@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Open Graph / social previews — always first in the head, before scripts/links -->
+    <meta property="og:type"              content="website" />
+    <meta property="og:url"               content="https://trackproduce.nexttech.com.ar/" />
+    <meta property="og:title"             content="Track Produce — Productora audiovisual y musical" />
+    <meta property="og:description"       content="Track Produce — productora audiovisual y musical en Buenos Aires. Videoclips, estudios de grabación, dirección de arte, shows en vivo y eventos." />
+    <meta property="og:image"             content="{{ url_for('static', filename='assets/og-image.png', _external=True) }}" />
+    <meta property="og:image:secure_url"  content="{{ url_for('static', filename='assets/og-image.png', _external=True) }}" />
+    <meta property="og:image:type"        content="image/png" />
+    <meta property="og:image:width"       content="1200" />
+    <meta property="og:image:height"      content="630" />
+    <meta property="og:image:alt"         content="Track Produce — productora audiovisual y musical" />
+    <meta property="og:locale"            content="es_AR" />
+    <meta property="og:site_name"         content="Track Produce" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card"        content="summary_large_image" />
+    <meta name="twitter:title"       content="Track Produce — Productora audiovisual y musical" />
+    <meta name="twitter:description" content="Track Produce — productora audiovisual y musical en Buenos Aires. Videoclips, estudios de grabación, dirección de arte, shows en vivo y eventos." />
+    <meta name="twitter:image"       content="{{ url_for('static', filename='assets/og-image.png', _external=True) }}" />
+
+    <title>{{ project_name }} — Productora audiovisual y musical</title>
+    <meta name="description" content="Track Produce — productora audiovisual y musical en Buenos Aires. Videoclips, estudios de grabación, dirección de arte, shows en vivo y eventos." />
+    <meta name="theme-color" content="#07060e" />
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32.png') }}" />
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}" />
+    <!-- Self-hosted fonts (no render-blocking third-party request). Preload the
+         latin subsets used above the fold so first paint has them swap-ready. -->
+    <link rel="preload" as="font" type="font/woff2" crossorigin
+          href="{{ url_for('static', filename='fonts/inter-latin.woff2') }}" />
+    <link rel="preload" as="font" type="font/woff2" crossorigin
+          href="{{ url_for('static', filename='fonts/spacegrotesk-latin.woff2') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+    {% if config.get('UMAMI_WEBSITE_ID') %}
+    <script async src="https://analytics.nexttech.com.ar/script.js" data-website-id="{{ config.UMAMI_WEBSITE_ID }}"></script>
+    {% endif %}
+</head>
+<body>
+    <header class="site-header" id="site-header">
+        <a class="brand" href="#top">Track<span>Produce</span><i class="brand__mark" aria-hidden="true"></i></a>
+        <button class="nav-toggle" id="nav-toggle" aria-label="Abrir menú" aria-expanded="false" aria-controls="site-nav">
+            <span></span><span></span><span></span>
+        </button>
+        <nav class="site-nav" id="site-nav">
+            <a href="#servicios"><span>01</span> Servicios</a>
+            <a href="#trabajo"><span>02</span> Trabajo</a>
+            <a href="#contacto"><span>03</span> Contacto</a>
+        </nav>
+        <div class="nav-backdrop" id="nav-backdrop" hidden></div>
+    </header>
+
+    <section class="hero" id="top">
+        <video class="hero__bg" autoplay muted loop playsinline
+               poster="{{ url_for('static', filename='assets/gallery/hero-bg-poster.webp') }}">
+            <source src="{{ url_for('static', filename='assets/gallery/hero-bg.mp4') }}" type="video/mp4" />
+        </video>
+        <div class="hero__overlay"></div>
+        <div class="hero__content">
+            <p class="hero__eyebrow"><span class="eyebrow-line"></span>Productora audiovisual &amp; musical</p>
+            <h1 class="hero__title">Track<span class="hero__title-accent">Produce</span></h1>
+            <p class="hero__sub">Creamos, grabamos y producimos. Desde la idea hasta el resultado final, en Buenos Aires.</p>
+            <div class="hero__actions">
+                <a class="btn btn--primary" href="#trabajo">Ver el trabajo<i class="btn__arrow">→</i></a>
+                <a class="btn btn--ghost" href="#contacto">Contacto</a>
+            </div>
+        </div>
+        <a class="hero__scroll" href="#servicios" aria-label="Bajar"></a>
+    </section>
+
+    <!-- Marquee de colaboradores -->
+    <section class="marquee" aria-label="Artistas y marcas con los que trabajamos">
+        <div class="marquee__track">
+            {% for group in [collaborators, collaborators] %}
+            <div class="marquee__group" {% if loop.index0 == 1 %}aria-hidden="true"{% endif %}>
+                {% for name in group %}
+                <span class="marquee__item">{{ name }}</span>
+                <span class="marquee__dot" aria-hidden="true">✦</span>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="section" id="servicios">
+        <p class="eyebrow"><span class="eyebrow__num">01</span> Servicios</p>
+        <h2 class="section__title">Hacemos casi todo.</h2>
+        <ol class="services">
+            <li class="service">
+                <span class="service__num">01</span>
+                <div class="service__body">
+                    <h3>Producción audiovisual</h3>
+                    <p>Videoclips, publicidades y contenido de marca de principio a fin.</p>
+                </div>
+            </li>
+            <li class="service">
+                <span class="service__num">02</span>
+                <div class="service__body">
+                    <h3>Estudios de grabación</h3>
+                    <p>Espacios de música, foto, stream y podcast equipados y adaptables.</p>
+                </div>
+            </li>
+            <li class="service">
+                <span class="service__num">03</span>
+                <div class="service__body">
+                    <h3>Dirección de arte</h3>
+                    <p>Ambientación y puesta en escena para que cada idea encuentre forma.</p>
+                </div>
+            </li>
+            <li class="service">
+                <span class="service__num">04</span>
+                <div class="service__body">
+                    <h3>Shows &amp; eventos</h3>
+                    <p>Producción integral de shows en vivo y eventos temáticos.</p>
+                </div>
+            </li>
+        </ol>
+    </section>
+
+    <section class="section" id="trabajo">
+        <div class="section__head">
+            <div>
+                <p class="eyebrow"><span class="eyebrow__num">02</span> Trabajo</p>
+                <h2 class="section__title">Una selección.</h2>
+            </div>
+            <a class="section__link" href="https://www.instagram.com/trackproduce/" target="_blank" rel="noopener">Ver más en Instagram →</a>
+        </div>
+
+        <div class="filters" role="tablist">
+            <button class="filter is-active" data-filter="all">Todo</button>
+            {% for cat in gallery %}
+            <button class="filter" data-filter="{{ cat.slug }}">{{ cat.title }}</button>
+            {% endfor %}
+        </div>
+
+        <div class="gallery">
+            {% for cat in gallery %}
+                {% for item in cat['items'] %}
+                <figure class="card" data-cat="{{ cat.slug }}"
+                        style="--w: {{ item.width }}; --h: {{ item.height }};"
+                        data-type="{{ item.type }}"
+                        data-src="{{ url_for('static', filename=item.src) }}"
+                        tabindex="0" aria-label="{{ item.alt }}">
+                    {% if item.type == 'video' %}
+                        <video class="card__media" muted loop playsinline preload="none"
+                               poster="{{ url_for('static', filename=item.poster) }}"></video>
+                        <span class="card__badge" aria-hidden="true">▶</span>
+                    {% else %}
+                        {% set base = item.src.rsplit('.', 1)[0] %}
+                        <img class="card__media" loading="lazy"
+                             src="{{ url_for('static', filename=base ~ '-600.webp') }}"
+                             srcset="{{ url_for('static', filename=base ~ '-400.webp') }} 400w,
+                                     {{ url_for('static', filename=base ~ '-600.webp') }} 600w"
+                             sizes="(max-width: 540px) 100vw, (max-width: 900px) 50vw, 33vw"
+                             width="{{ item.width }}" height="{{ item.height }}"
+                             alt="{{ item.alt }}" />
+                    {% endif %}
+                    <figcaption class="card__cap">
+                        <span class="card__cat">{{ cat.title }}</span>
+                    </figcaption>
+                </figure>
+                {% endfor %}
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="section section--cta" id="contacto">
+        <p class="eyebrow eyebrow--center"><span class="eyebrow__num">03</span> Contacto</p>
+        <h2 class="cta__title">¿Tenés un proyecto<br />en mente?</h2>
+        <p class="cta__text">Contanos tu idea y la hacemos realidad. Track nunca para.</p>
+        <div class="cta__actions">
+            <a class="btn btn--primary" href="https://www.instagram.com/trackproduce/" target="_blank" rel="noopener">@trackproduce<i class="btn__arrow">→</i></a>
+            <a class="btn btn--ghost" href="mailto:hola@trackproduce.com">Escribinos</a>
+        </div>
+    </section>
+
+    <footer class="site-footer">
+        <div class="site-footer__top">
+            <a class="brand" href="#top">Track<span>Produce</span></a>
+            <nav class="site-footer__nav">
+                <a href="#servicios">Servicios</a>
+                <a href="#trabajo">Trabajo</a>
+                <a href="#contacto">Contacto</a>
+                <a href="https://www.instagram.com/trackproduce/" target="_blank" rel="noopener">Instagram</a>
+            </nav>
+        </div>
+        <div class="site-footer__bottom">
+            <small>&copy; {{ current_year }} {{ project_name }} · Buenos Aires</small>
+            <small>Productora audiovisual &amp; musical</small>
+        </div>
+        <script src="https://nexttech.com.ar/static/js/nexttechFooter.js"></script>
+        <nexttech-footer source="trackproduce"></nexttech-footer>
+    </footer>
+
+    <!-- Lightbox -->
+    <div class="lightbox" id="lightbox" hidden>
+        <button class="lightbox__close" aria-label="Cerrar">&times;</button>
+        <button class="lightbox__nav lightbox__prev" aria-label="Anterior">&#8249;</button>
+        <div class="lightbox__stage"></div>
+        <button class="lightbox__nav lightbox__next" aria-label="Siguiente">&#8250;</button>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
