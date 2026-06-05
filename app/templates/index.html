@@ -130,10 +130,10 @@
             <a class="section__link" href="https://www.instagram.com/trackproduce/" target="_blank" rel="noopener">Ver más en Instagram →</a>
         </div>
 
-        <div class="filters" role="tablist">
-            <button class="filter is-active" data-filter="all">Todo</button>
+        <div class="filters" role="group" aria-label="Filtrar trabajos">
+            <button class="filter is-active" type="button" data-filter="all" aria-pressed="true">Todo</button>
             {% for cat in gallery %}
-            <button class="filter" data-filter="{{ cat.slug }}">{{ cat.title }}</button>
+            <button class="filter" type="button" data-filter="{{ cat.slug }}" aria-pressed="false">{{ cat.title }}</button>
             {% endfor %}
         </div>
 

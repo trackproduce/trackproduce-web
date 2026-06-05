@@ -52,8 +52,12 @@ document.addEventListener("DOMContentLoaded", () => {
     /* ---------- Category filter ---------- */
     filters.forEach((btn) => {
         btn.addEventListener("click", () => {
-            filters.forEach((b) => b.classList.remove("is-active"));
+            filters.forEach((b) => {
+                b.classList.remove("is-active");
+                b.setAttribute("aria-pressed", "false");
+            });
             btn.classList.add("is-active");
+            btn.setAttribute("aria-pressed", "true");
             const f = btn.dataset.filter;
             cards.forEach((card) => {
                 const show = f === "all" || card.dataset.cat === f;
