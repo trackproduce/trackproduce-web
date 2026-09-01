@@ -11,6 +11,12 @@ services:
       - VIRTUAL_HOST=trackproduce.nexttech.com.ar
       - VIRTUAL_PORT=7015
       - UMAMI_WEBSITE_ID=ed7bc6c8-4375-4f01-abcf-5868b70278d9
+      - SITE_URL=https://trackproduce.nexttech.com.ar
+      # Content editor (/admin/content). Both come from the host .env — never
+      # hardcoded here. SECRET_KEY signs the admin session, so it must be stable
+      # across the gunicorn workers or the login stops sticking.
+      - SECRET_KEY=${SECRET_KEY}
+      - SITECOPY_PASSWORD=${SITECOPY_PASSWORD}
     ports:
       - "7015:7015"
     expose:

@@ -115,6 +115,10 @@ def get_gallery() -> list[Category]:
 
 
 # Real collaborators / clients, derived from the brand's published work.
+#
+# This list is the *default* of the ``home.marquee.items`` registry field (see
+# ``app/registry.py``): the marquee renders whatever the content editor has published,
+# falling back to exactly these names while there is no override.
 COLLABORATORS: list[str] = [
     "Lourdes Annoni",
     "Comuna 15",
@@ -132,5 +136,5 @@ COLLABORATORS: list[str] = [
 
 
 def get_collaborators() -> list[str]:
-    """Return the list of collaborators for the marquee."""
+    """Return the collaborators the marquee falls back to with no override."""
     return COLLABORATORS

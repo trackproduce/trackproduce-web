@@ -6,26 +6,26 @@
 
     <!-- Open Graph / social previews — always first in the head, before scripts/links -->
     <meta property="og:type"              content="website" />
-    <meta property="og:url"               content="https://trackproduce.nexttech.com.ar/" />
-    <meta property="og:title"             content="Track Produce — Productora audiovisual y musical" />
-    <meta property="og:description"       content="Track Produce — productora audiovisual y musical en Buenos Aires. Videoclips, estudios de grabación, dirección de arte, shows en vivo y eventos." />
+    <meta property="og:url"               content="{{ config.SITE_URL }}/" />
+    <meta property="og:title"             content="{{ t('home.meta.title') }}" />
+    <meta property="og:description"       content="{{ t('home.meta.description') }}" />
     <meta property="og:image"             content="{{ url_for('static', filename='assets/og-image.png', _external=True) }}" />
     <meta property="og:image:secure_url"  content="{{ url_for('static', filename='assets/og-image.png', _external=True) }}" />
     <meta property="og:image:type"        content="image/png" />
     <meta property="og:image:width"       content="1200" />
     <meta property="og:image:height"      content="630" />
-    <meta property="og:image:alt"         content="Track Produce — productora audiovisual y musical" />
+    <meta property="og:image:alt"         content="{{ t('home.meta.image_alt') }}" />
     <meta property="og:locale"            content="es_AR" />
-    <meta property="og:site_name"         content="Track Produce" />
+    <meta property="og:site_name"         content="{{ t('global.brand') }}" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card"        content="summary_large_image" />
-    <meta name="twitter:title"       content="Track Produce — Productora audiovisual y musical" />
-    <meta name="twitter:description" content="Track Produce — productora audiovisual y musical en Buenos Aires. Videoclips, estudios de grabación, dirección de arte, shows en vivo y eventos." />
+    <meta name="twitter:title"       content="{{ t('home.meta.title') }}" />
+    <meta name="twitter:description" content="{{ t('home.meta.description') }}" />
     <meta name="twitter:image"       content="{{ url_for('static', filename='assets/og-image.png', _external=True) }}" />
 
-    <title>{{ project_name }} — Productora audiovisual y musical</title>
-    <meta name="description" content="Track Produce — productora audiovisual y musical en Buenos Aires. Videoclips, estudios de grabación, dirección de arte, shows en vivo y eventos." />
+    <title>{{ t('home.meta.title') }}</title>
+    <meta name="description" content="{{ t('home.meta.description') }}" />
     <meta name="theme-color" content="#07060e" />
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32.png') }}" />
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}" />
@@ -42,39 +42,45 @@
 </head>
 <body>
     <header class="site-header" id="site-header">
-        <a class="brand" href="#top">Track<span>Produce</span><i class="brand__mark" aria-hidden="true"></i></a>
-        <button class="nav-toggle" id="nav-toggle" aria-label="Abrir menú" aria-expanded="false" aria-controls="site-nav">
+        <a class="brand" href="#top">{{ t('global.wordmark.start') }}<span>{{ t('global.wordmark.end') }}</span><i class="brand__mark" aria-hidden="true"></i></a>
+        <!-- The two data-label-* values are read back by main.js when the menu opens and
+             closes; t_plain keeps them free of editor markers, since JS reads the raw
+             attribute rather than the rewritten HTML. -->
+        <button class="nav-toggle" id="nav-toggle" aria-label="{{ t('home.nav.open_label') }}" aria-expanded="false" aria-controls="site-nav"
+                data-label-open="{{ t_plain('home.nav.open_label') }}"
+                data-label-close="{{ t_plain('home.nav.close_label') }}">
             <span></span><span></span><span></span>
         </button>
         <nav class="site-nav" id="site-nav">
-            <a href="#servicios"><span>01</span> Servicios</a>
-            <a href="#trabajo"><span>02</span> Trabajo</a>
-            <a href="#contacto"><span>03</span> Contacto</a>
+            <a href="#servicios"><span>01</span> {{ t('home.nav.services') }}</a>
+            <a href="#trabajo"><span>02</span> {{ t('home.nav.work') }}</a>
+            <a href="#contacto"><span>03</span> {{ t('home.nav.contact') }}</a>
         </nav>
         <div class="nav-backdrop" id="nav-backdrop" hidden></div>
     </header>
 
     <section class="hero" id="top">
         <video class="hero__bg" autoplay muted loop playsinline
-               poster="{{ url_for('static', filename='assets/gallery/hero-bg-poster.webp') }}">
-            <source src="{{ url_for('static', filename='assets/gallery/hero-bg.mp4') }}" type="video/mp4" />
+               poster="{{ t('home.hero.poster') }}">
+            <source src="{{ t('home.hero.video') }}" type="video/mp4" />
         </video>
         <div class="hero__overlay"></div>
         <div class="hero__content">
-            <p class="hero__eyebrow"><span class="eyebrow-line"></span>Productora audiovisual &amp; musical</p>
-            <h1 class="hero__title">Track<span class="hero__title-accent">Produce</span></h1>
-            <p class="hero__sub">Creamos, grabamos y producimos. Desde la idea hasta el resultado final, en Buenos Aires.</p>
+            <p class="hero__eyebrow"><span class="eyebrow-line"></span>{{ t('global.tagline') }}</p>
+            <h1 class="hero__title">{{ t('global.wordmark.start') }}<span class="hero__title-accent">{{ t('global.wordmark.end') }}</span></h1>
+            <p class="hero__sub">{{ t('home.hero.subtitle') }}</p>
             <div class="hero__actions">
-                <a class="btn btn--primary" href="#trabajo">Ver el trabajo<i class="btn__arrow">→</i></a>
-                <a class="btn btn--ghost" href="#contacto">Contacto</a>
+                <a class="btn btn--primary" href="#trabajo">{{ t('home.hero.cta_primary') }}<i class="btn__arrow">→</i></a>
+                <a class="btn btn--ghost" href="#contacto">{{ t('home.hero.cta_secondary') }}</a>
             </div>
         </div>
-        <a class="hero__scroll" href="#servicios" aria-label="Bajar"></a>
+        <a class="hero__scroll" href="#servicios" aria-label="{{ t('home.hero.scroll_label') }}"></a>
     </section>
 
     <!-- Marquee de colaboradores -->
-    <section class="marquee" aria-label="Artistas y marcas con los que trabajamos">
+    <section class="marquee" aria-label="{{ t('home.marquee.label') }}">
         <div class="marquee__track">
+            {%- set collaborators = t_lines('home.marquee.items') %}
             {% for group in [collaborators, collaborators] %}
             <div class="marquee__group" {% if loop.index0 == 1 %}aria-hidden="true"{% endif %}>
                 {% for name in group %}
@@ -87,35 +93,35 @@
     </section>
 
     <section class="section" id="servicios">
-        <p class="eyebrow"><span class="eyebrow__num">01</span> Servicios</p>
-        <h2 class="section__title">Hacemos casi todo.</h2>
+        <p class="eyebrow"><span class="eyebrow__num">01</span> {{ t('home.nav.services') }}</p>
+        <h2 class="section__title">{{ t('home.services.title') }}</h2>
         <ol class="services">
             <li class="service">
                 <span class="service__num">01</span>
                 <div class="service__body">
-                    <h3>Producción audiovisual</h3>
-                    <p>Videoclips, publicidades y contenido de marca de principio a fin.</p>
+                    <h3>{{ t('home.services.item1.title') }}</h3>
+                    <p>{{ t('home.services.item1.text') }}</p>
                 </div>
             </li>
             <li class="service">
                 <span class="service__num">02</span>
                 <div class="service__body">
-                    <h3>Estudios de grabación</h3>
-                    <p>Espacios de música, foto, stream y podcast equipados y adaptables.</p>
+                    <h3>{{ t('home.services.item2.title') }}</h3>
+                    <p>{{ t('home.services.item2.text') }}</p>
                 </div>
             </li>
             <li class="service">
                 <span class="service__num">03</span>
                 <div class="service__body">
-                    <h3>Dirección de arte</h3>
-                    <p>Ambientación y puesta en escena para que cada idea encuentre forma.</p>
+                    <h3>{{ t('home.services.item3.title') }}</h3>
+                    <p>{{ t('home.services.item3.text') }}</p>
                 </div>
             </li>
             <li class="service">
                 <span class="service__num">04</span>
                 <div class="service__body">
-                    <h3>Shows &amp; eventos</h3>
-                    <p>Producción integral de shows en vivo y eventos temáticos.</p>
+                    <h3>{{ t('home.services.item4.title') }}</h3>
+                    <p>{{ t('home.services.item4.text') }}</p>
                 </div>
             </li>
         </ol>
@@ -124,14 +130,14 @@
     <section class="section" id="trabajo">
         <div class="section__head">
             <div>
-                <p class="eyebrow"><span class="eyebrow__num">02</span> Trabajo</p>
-                <h2 class="section__title">Una selección.</h2>
+                <p class="eyebrow"><span class="eyebrow__num">02</span> {{ t('home.nav.work') }}</p>
+                <h2 class="section__title">{{ t('home.work.title') }}</h2>
             </div>
-            <a class="section__link" href="https://www.instagram.com/trackproduce/" target="_blank" rel="noopener">Ver más en Instagram →</a>
+            <a class="section__link" href="{{ t('global.instagram_url') }}" target="_blank" rel="noopener">{{ t('home.work.link') }} →</a>
         </div>
 
-        <div class="filters" role="group" aria-label="Filtrar trabajos">
-            <button class="filter is-active" type="button" data-filter="all" aria-pressed="true">Todo</button>
+        <div class="filters" role="group" aria-label="{{ t('home.work.filters_label') }}">
+            <button class="filter is-active" type="button" data-filter="all" aria-pressed="true">{{ t('home.work.filter_all') }}</button>
             {% for cat in gallery %}
             <button class="filter" type="button" data-filter="{{ cat.slug }}" aria-pressed="false">{{ cat.title }}</button>
             {% endfor %}
@@ -169,28 +175,28 @@
     </section>
 
     <section class="section section--cta" id="contacto">
-        <p class="eyebrow eyebrow--center"><span class="eyebrow__num">03</span> Contacto</p>
-        <h2 class="cta__title">¿Tenés un proyecto<br />en mente?</h2>
-        <p class="cta__text">Contanos tu idea y la hacemos realidad. Track nunca para.</p>
+        <p class="eyebrow eyebrow--center"><span class="eyebrow__num">03</span> {{ t('home.nav.contact') }}</p>
+        <h2 class="cta__title">{{ t('home.contact.title') }}</h2>
+        <p class="cta__text">{{ t('home.contact.text') }}</p>
         <div class="cta__actions">
-            <a class="btn btn--primary" href="https://www.instagram.com/trackproduce/" target="_blank" rel="noopener">@trackproduce<i class="btn__arrow">→</i></a>
-            <a class="btn btn--ghost" href="mailto:hola@trackproduce.com">Escribinos</a>
+            <a class="btn btn--primary" href="{{ t('global.instagram_url') }}" target="_blank" rel="noopener">{{ t('global.instagram_handle') }}<i class="btn__arrow">→</i></a>
+            <a class="btn btn--ghost" href="mailto:{{ t('global.email') }}">{{ t('home.contact.cta_email') }}</a>
         </div>
     </section>
 
     <footer class="site-footer">
         <div class="site-footer__top">
-            <a class="brand" href="#top">Track<span>Produce</span></a>
+            <a class="brand" href="#top">{{ t('global.wordmark.start') }}<span>{{ t('global.wordmark.end') }}</span></a>
             <nav class="site-footer__nav">
-                <a href="#servicios">Servicios</a>
-                <a href="#trabajo">Trabajo</a>
-                <a href="#contacto">Contacto</a>
-                <a href="https://www.instagram.com/trackproduce/" target="_blank" rel="noopener">Instagram</a>
+                <a href="#servicios">{{ t('home.nav.services') }}</a>
+                <a href="#trabajo">{{ t('home.nav.work') }}</a>
+                <a href="#contacto">{{ t('home.nav.contact') }}</a>
+                <a href="{{ t('global.instagram_url') }}" target="_blank" rel="noopener">{{ t('home.footer.instagram') }}</a>
             </nav>
         </div>
         <div class="site-footer__bottom">
-            <small>&copy; {{ current_year }} {{ project_name }} · Buenos Aires</small>
-            <small>Productora audiovisual &amp; musical</small>
+            <small>{{ t('home.footer.note') }}</small>
+            <small>{{ t('global.tagline') }}</small>
         </div>
         <script src="https://nexttech.com.ar/static/js/nexttechFooter.js"></script>
         <nexttech-footer source="trackproduce"></nexttech-footer>
@@ -198,10 +204,10 @@
 
     <!-- Lightbox -->
     <div class="lightbox" id="lightbox" hidden>
-        <button class="lightbox__close" aria-label="Cerrar">&times;</button>
-        <button class="lightbox__nav lightbox__prev" aria-label="Anterior">&#8249;</button>
+        <button class="lightbox__close" aria-label="{{ t('home.lightbox.close') }}">&times;</button>
+        <button class="lightbox__nav lightbox__prev" aria-label="{{ t('home.lightbox.prev') }}">&#8249;</button>
         <div class="lightbox__stage"></div>
-        <button class="lightbox__nav lightbox__next" aria-label="Siguiente">&#8250;</button>
+        <button class="lightbox__nav lightbox__next" aria-label="{{ t('home.lightbox.next') }}">&#8250;</button>
     </div>
 
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
