@@ -2,20 +2,61 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime
+import secrets
 
 from dotenv import load_dotenv
 from flask import Flask
 from flask_compress import Compress
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
+from markupsafe import Markup
+from sitecopy import LocalFileStore, SiteCopy, is_edit_mode, t
+from sitecopy.resolver import editable
+
+from app.content import STATIC_PREFIX, media_src, responsive_image
+from app.registry import REGISTRY
 
 load_dotenv()
+
+DEFAULT_SITE_URL = "https://trackproduce.nexttech.com.ar"
 
 # Extensions are created at module level so models and repositories can import
 # them (e.g. ``from app.factory import db``).
 db: SQLAlchemy = SQLAlchemy()
 migrate: Migrate = Migrate()
+sitecopy: SiteCopy = SiteCopy()
+
+
+def editable_media(*keys: str) -> Markup:
+    """Attach media field `keys` to the ``<img>``/``<video>`` they are rendered on.
+
+    The visual editor hangs its "cambiar imagen" control off the picture itself, and
+    finds the picture by looking for a media key among the ones that element carries.
+    A key reaches an element by appearing in one of its attributes, which normally
+    happens for free — but this site renders media through a cache-stamped, responsive
+    URL rather than the stored value, so nothing would carry the key.
+
+    Hence a marker in a throwaway attribute, emitted **only in edit mode**: the response
+    rewrite consumes it and records the key, and a visitor's HTML never grows an
+    attribute that exists purely for the editor.
+    """
+    if not is_edit_mode():
+        return Markup("")
+    # Leading space, and every call site strips the whitespace before it: that way the
+    # attribute is separated from its neighbour here, and a public render collapses to
+    # nothing at all rather than leaving a ragged blank line behind.
+    return Markup(
+        "".join(f' data-ct-key-{index}="{editable(key)}"' for index, key in enumerate(keys))
+    )
+
+
+def editor_pages() -> list[dict[str, str]]:
+    """The pages the visual editor may open in its canvas.
+
+    Also the allow-list of pages it can START on, so the editor can never be loaded
+    into its own frame. One entry, because the site is one page.
+    """
+    return [{"path": "/", "label": "Inicio"}]
 
 
 def create_app() -> Flask:
@@ -26,8 +67,20 @@ def create_app() -> Flask:
         "DATABASE_URL", "sqlite:///local.db"
     )
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-    app.config["UPLOAD_FOLDER"] = os.environ.get("UPLOAD_FOLDER", "uploads")
+    # Absolute: uploaded media is served back out of this directory, and a relative
+    # path would resolve against whatever the working directory happens to be.
+    app.config["UPLOAD_FOLDER"] = os.path.abspath(
+        os.environ.get("UPLOAD_FOLDER", "uploads")
+    )
     app.config["UMAMI_WEBSITE_ID"] = os.environ.get("UMAMI_WEBSITE_ID")
+    app.config["SITE_URL"] = os.environ.get("SITE_URL", DEFAULT_SITE_URL).rstrip("/")
+    # Signs the content editor's admin session. A generated key is a dev convenience
+    # only: it differs per process, so with more than one worker the login stops
+    # sticking. Set SECRET_KEY in every deployed environment.
+    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
+    # The editor's shared password. Unset, the panel refuses every password — which is
+    # the right default for an environment that was never meant to have one.
+    app.config["SITECOPY_PASSWORD"] = os.environ.get("SITECOPY_PASSWORD", "")
 
     # Cache static assets for a year; a ``?v=<mtime>`` cache-buster (below) makes
     # this safe — the URL changes whenever a file is edited, so clients never see
@@ -54,13 +107,43 @@ def create_app() -> Flask:
             return
         values["v"] = mtime
 
-    @app.context_processor
-    def inject_globals() -> dict[str, object]:
-        """Expose global variables to every template."""
-        return {
-            "current_year": datetime.now().year,
-            "project_name": "Track Produce",
-        }
+    # Site copy: every user-facing string comes from ``app/registry.py`` and can be
+    # edited at /admin/content without a deploy. The brand name and the year used to
+    # be template globals; they are registry fields and the {brand}/{year} tokens now,
+    # so there is only ever one source of truth for them.
+    #
+    # AFTER ``Compress(app)`` on purpose: Flask runs ``after_request`` hooks in reverse
+    # registration order, so registering later means the editor's HTML rewrite sees the
+    # response while it is still text rather than an already-gzipped body.
+    sitecopy.init_app(
+        app,
+        registry=REGISTRY,
+        db=db,
+        pages=editor_pages,
+        brand=lambda: str(t("global.brand")),
+        site_url=app.config["SITE_URL"],
+        # Uploads land in the mounted UPLOAD_FOLDER volume, not under static/, so they
+        # survive an image rebuild. ``serve_upload`` in routes.py serves them back.
+        files=LocalFileStore(app.config["UPLOAD_FOLDER"], "/uploads"),
+        # Let the editor change how big a text renders. The wrapper this puts around a
+        # sized value is a <span>, so the site's CSS must not style bare descendant
+        # spans — `.brand__accent` and `.site-nav__num` carry classes for that reason.
+        # Fields that only ever land in an attribute opt out in the registry instead:
+        # there is no text on the page for a size to apply to.
+        text_sizes=True,
+    )
+
+    # The gallery's registry defaults are literal "/static/…" strings built at import,
+    # with no app to ask. A different static_url_path would 404 every piece at once, so
+    # fail at boot rather than serving a gallery of broken images.
+    if app.static_url_path != STATIC_PREFIX:
+        raise RuntimeError(
+            f"app/content.py builds gallery defaults under {STATIC_PREFIX!r}, but this "
+            f"app serves static files from {app.static_url_path!r}."
+        )
+    app.jinja_env.globals["responsive_image"] = responsive_image
+    app.jinja_env.globals["media_src"] = media_src
+    app.jinja_env.globals["editable_media"] = editable_media
 
     with app.app_context():
         # Import models so SQLAlchemy/Migrate can discover them.
@@ -69,5 +152,6 @@ def create_app() -> Flask:
 
         register_routes(app)
         db.create_all()
+        sitecopy.ensure_schema()
 
     return app

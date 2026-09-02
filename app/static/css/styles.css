@@ -133,7 +133,9 @@ a { color: inherit; text-decoration: none; }
     gap: 0.1em;
     z-index: 60;
 }
-.brand span { color: var(--accent); }
+/* Class, not a bare `span`: with editable text sizes on, a resized string is
+   itself wrapped in a <span>, and `.brand span` would paint it accent-coloured. */
+.brand__accent { color: var(--accent); }
 .brand__mark {
     width: 0; height: 0;
     margin-left: 0.45em;
@@ -151,9 +153,9 @@ a { color: inherit; text-decoration: none; }
     align-items: baseline;
     gap: 0.4em;
 }
-.site-nav a span { color: var(--faint); font-size: 0.7rem; font-variant-numeric: tabular-nums; }
+.site-nav__num { color: var(--faint); font-size: 0.7rem; font-variant-numeric: tabular-nums; }
 .site-nav a:hover { color: var(--fg); }
-.site-nav a:hover span { color: var(--accent); }
+.site-nav a:hover .site-nav__num { color: var(--accent); }
 
 /* Hamburger toggle */
 .nav-toggle { display: none; }
@@ -196,7 +198,7 @@ a { color: inherit; text-decoration: none; }
     }
     .site-nav.is-open { transform: translateX(0); }
     .site-nav a { font-size: 1.35rem; color: var(--fg); }
-    .site-nav a span { font-size: 0.8rem; }
+    .site-nav__num { font-size: 0.8rem; }
     .nav-backdrop {
         display: block; position: fixed; inset: 0;
         background: rgba(0, 0, 0, 0.5);

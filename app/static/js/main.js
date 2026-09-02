@@ -19,7 +19,12 @@ document.addEventListener("DOMContentLoaded", () => {
         navBackdrop.classList.toggle("is-open", open);
         navBackdrop.hidden = !open;
         navToggle.setAttribute("aria-expanded", String(open));
-        navToggle.setAttribute("aria-label", open ? "Cerrar menú" : "Abrir menú");
+        // Both labels are editable copy: the template renders them into data-label-*
+        // (see app/registry.py, "Menú"), so this file holds no user-facing text.
+        navToggle.setAttribute(
+            "aria-label",
+            open ? navToggle.dataset.labelClose : navToggle.dataset.labelOpen
+        );
     };
     navToggle.addEventListener("click", () => setNav(nav.classList.contains("is-open") ? false : true));
     navBackdrop.addEventListener("click", () => setNav(false));
