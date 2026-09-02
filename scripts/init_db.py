@@ -15,6 +15,10 @@ from __future__ import annotations
 import os
 import sys
 
+# Running a file inside scripts/ puts scripts/ on the path, not the repo root, so the
+# ``app`` package would not import. Put the root first and it runs from anywhere.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 
 def main() -> int:
     url = os.environ.get("DATABASE_URL")

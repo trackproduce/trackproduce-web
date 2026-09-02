@@ -13,3 +13,5 @@ _curacion/
 .mypy_cache/
 .DS_Store
 uploads/
+.vercel
+.env.local
