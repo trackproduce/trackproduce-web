@@ -8,16 +8,16 @@ these defaults — no seeding step, and adding copy never needs a migration.
 Adding a new text is two lines: a :class:`~sitecopy.TextField` here and a ``t('<key>')``
 in the template. ``tests/test_content_registry.py`` fails if one of them is missing.
 
-Not declared here on purpose: the gallery pieces (``app/content.py``). Their captions
-and alt texts are tied one-to-one to a media file that only changes with a deploy, so
-they ride with the files instead — the editor is told as much via ``external_content``
-in :func:`app.factory.create_app`.
+The gallery is the one group built rather than typed out: ``app/content.py`` owns the
+*shape* (how many pieces, in what order, at what aspect ratio) and :func:`_gallery_group`
+turns each piece into the fields that edit it — the file it points at, and its
+description. Adding a picture there is all it takes for the editor to offer it.
 """
 from __future__ import annotations
 
 from sitecopy import Group, Registry, Section, TextField
 
-from app.content import get_collaborators
+from app.content import get_collaborators, get_gallery, static_url
 
 # --- Global: brand, links, and the words reused across the page ----------------------
 
@@ -99,11 +99,13 @@ HOME = Group(
                     "home.nav.open_label",
                     "Botón del menú, cerrado (lectores de pantalla)",
                     "Abrir menú",
+                    resizable=False,
                 ),
                 TextField(
                     "home.nav.close_label",
                     "Botón del menú, abierto (lectores de pantalla)",
                     "Cerrar menú",
+                    resizable=False,
                 ),
             ),
         ),
@@ -135,7 +137,12 @@ HOME = Group(
                     type="image",
                     hint="Se ve durante el primer instante, antes de que arranque el video.",
                 ),
-                TextField("home.hero.scroll_label", "Flecha para bajar (lectores de pantalla)", "Bajar"),
+                TextField(
+                    "home.hero.scroll_label",
+                    "Flecha para bajar (lectores de pantalla)",
+                    "Bajar",
+                    resizable=False,
+                ),
             ),
         ),
         Section(
@@ -153,6 +160,7 @@ HOME = Group(
                     "home.marquee.label",
                     "Nombre de la tira (lectores de pantalla)",
                     "Artistas y marcas con los que trabajamos",
+                    resizable=False,
                 ),
             ),
         ),
@@ -195,10 +203,7 @@ HOME = Group(
         Section(
             key="work",
             title="Trabajo",
-            note=(
-                "Los nombres de las categorías y las descripciones de cada pieza viajan "
-                "con los archivos de la galería, no se editan acá."
-            ),
+            note="Las piezas y los nombres de las categorías se editan en «Galería».",
             fields=(
                 TextField("home.work.title", "Título", "Una selección."),
                 TextField("home.work.link", "Link a Instagram", "Ver más en Instagram"),
@@ -207,6 +212,7 @@ HOME = Group(
                     "home.work.filters_label",
                     "Nombre de los filtros (lectores de pantalla)",
                     "Filtrar trabajos",
+                    resizable=False,
                 ),
             ),
         ),
@@ -243,9 +249,9 @@ HOME = Group(
             title="Visor de imágenes",
             note="Los botones del visor que se abre al tocar una pieza. No se leen en pantalla.",
             fields=(
-                TextField("home.lightbox.close", "Cerrar", "Cerrar"),
-                TextField("home.lightbox.prev", "Anterior", "Anterior"),
-                TextField("home.lightbox.next", "Siguiente", "Siguiente"),
+                TextField("home.lightbox.close", "Cerrar", "Cerrar", resizable=False),
+                TextField("home.lightbox.prev", "Anterior", "Anterior", resizable=False),
+                TextField("home.lightbox.next", "Siguiente", "Siguiente", resizable=False),
             ),
         ),
         Section(
@@ -258,6 +264,7 @@ HOME = Group(
                     "Título en Google",
                     "{brand} — Productora audiovisual y musical",
                     max_length=120,
+                    resizable=False,
                 ),
                 TextField(
                     "home.meta.description",
@@ -266,11 +273,13 @@ HOME = Group(
                     "estudios de grabación, dirección de arte, shows en vivo y eventos.",
                     type="text",
                     max_length=320,
+                    resizable=False,
                 ),
                 TextField(
                     "home.meta.image_alt",
                     "Descripción de la imagen que se comparte",
                     "{brand} — productora audiovisual y musical",
+                    resizable=False,
                 ),
             ),
         ),
@@ -278,8 +287,80 @@ HOME = Group(
 )
 
 
+# --- Galería: one field per piece, built from the list in app/content.py -------------
+
+UPLOAD_HINT = (
+    "Subí un archivo o pegá un link. La pieza se recorta al alto y ancho que ya tiene "
+    "en la grilla, así que conviene una proporción parecida a la actual."
+)
+
+
+def _piece_fields(item: dict, position: int) -> list[TextField]:
+    """The fields that edit one gallery piece: the file it points at, and its description."""
+    label = f"Pieza {position:02d}"
+    fields: list[TextField] = []
+    if item["type"] == "video":
+        fields.append(
+            TextField(f"{item['key']}.src", f"{label} — video", static_url(item["src"]),
+                      type="video", hint=UPLOAD_HINT)
+        )
+        fields.append(
+            TextField(f"{item['key']}.poster", f"{label} — imagen mientras carga",
+                      static_url(item["poster"]), type="image",
+                      hint="Se ve en la grilla hasta que el video arranca.")
+        )
+    else:
+        fields.append(
+            TextField(f"{item['key']}.src", f"{label} — imagen", static_url(item["src"]),
+                      type="image", hint=UPLOAD_HINT)
+        )
+    fields.append(
+        # Lands in `alt` and `aria-label` only, so there is no text on the page to resize.
+        TextField(f"{item['key']}.alt", f"{label} — descripción", item["alt"],
+                  resizable=False,
+                  hint="Lo que lee quien no ve la imagen, y lo que muestra el visor.")
+    )
+    return fields
+
+
+def _gallery_group() -> Group:
+    """Every piece of the gallery, one section per category.
+
+    Derived from ``app/content.py`` rather than typed out here: that list is where a
+    piece is added or removed, and this walks it so the two can never disagree about
+    how many pieces there are.
+    """
+    sections = tuple(
+        Section(
+            key=category["slug"],
+            title=category["title"],
+            note="Tocá una pieza en el editor visual para cambiarla en el lugar.",
+            fields=(
+                TextField(category["title_key"], "Nombre de la categoría",
+                          category["title"], max_length=60),
+                *(field
+                  for position, item in enumerate(category["items"], start=1)
+                  for field in _piece_fields(item, position)),
+            ),
+        )
+        for category in get_gallery()
+    )
+    return Group(
+        key="gallery",
+        title="Galería",
+        description="Las piezas de la sección Trabajo, por categoría.",
+        preview_path="/",
+        category="Sitio",
+        icon="◲",
+        sections=sections,
+    )
+
+
+GALLERY_GROUP: Group = _gallery_group()
+
+
 REGISTRY: Registry = Registry(
-    groups=(HOME, GLOBAL),
+    groups=(HOME, GALLERY_GROUP, GLOBAL),
     # Order matters: each token may use the ones declared before it. None of these
     # mention another today, but brand-first keeps that door open. {year} comes free.
     tokens=("global.brand", "global.city", "global.tagline"),

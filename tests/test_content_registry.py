@@ -7,6 +7,8 @@ production — so these tests fail the build instead.
 """
 from __future__ import annotations
 
+import base64
+import io
 import os
 import pathlib
 import re
@@ -16,8 +18,9 @@ import pytest
 from flask import Flask
 from flask.testing import FlaskClient
 from sitecopy.resolver import EDIT_END, EDIT_SEP, EDIT_START
-from sitecopy.testing import check_registry, check_templates
+from sitecopy.testing import check_registry, check_response_pipeline, check_templates
 
+from app.content import get_gallery
 from app.registry import REGISTRY
 
 PASSWORD = "test-only-password"
@@ -25,8 +28,12 @@ CSRF_FIELD = re.compile(r'name="_sitecopy_csrf"\s+value="([^"]+)"')
 CSRF_DATA = re.compile(r'data-csrf="([^"]+)"')
 
 
-def login(client: "FlaskClient") -> None:
-    """Sign in to the panel the way the browser does — CSRF token and all."""
+def login(client: "FlaskClient") -> str:
+    """Sign in to the panel the way the browser does, and return the session's CSRF token.
+
+    Every state-changing panel request carries one, so the token is what a test needs
+    next. It has to be read AFTER logging in: authenticating rotates the session.
+    """
     form = client.get("/admin/content/login").get_data(as_text=True)
     token = CSRF_FIELD.search(form)
     assert token is not None, "the login form carried no CSRF token"
@@ -36,6 +43,10 @@ def login(client: "FlaskClient") -> None:
         follow_redirects=True,
     )
     assert response.status_code == 200
+
+    editor = CSRF_DATA.search(client.get("/admin/content/").get_data(as_text=True))
+    assert editor is not None, "the editor carried no CSRF token"
+    return editor.group(1)
 
 
 @pytest.fixture
@@ -47,12 +58,16 @@ def app(tmp_path: pathlib.Path) -> Iterator[Flask]:
     """
     database = tmp_path / "test.sqlite"
     previous = {
-        key: os.environ.get(key) for key in ("DATABASE_URL", "SECRET_KEY", "SITECOPY_PASSWORD")
+        key: os.environ.get(key)
+        for key in ("DATABASE_URL", "SECRET_KEY", "SITECOPY_PASSWORD", "UPLOAD_FOLDER")
     }
     os.environ.update(
         DATABASE_URL=f"sqlite:///{database}",
         SECRET_KEY="test-only-secret-key",
         SITECOPY_PASSWORD=PASSWORD,
+        # Uploads too: the default is a directory in the working tree, and the upload
+        # test would leave a stray file in it on every run.
+        UPLOAD_FOLDER=str(tmp_path / "uploads"),
     )
     try:
         # Imported here, not at module scope: create_app reads the environment above.
@@ -72,9 +87,32 @@ def test_registry_is_sound() -> None:
     assert check_registry(REGISTRY) == []
 
 
+def gallery_keys() -> list[str]:
+    """The gallery's keys, which the template builds at runtime from the piece's slug.
+
+    A literal scan cannot see `t(item.key ~ '.src')`, so they are declared here instead —
+    and because this walks the same list the registry does, a piece that stops being
+    rendered still cannot slip through unnoticed.
+    """
+    keys: list[str] = []
+    for category in get_gallery():
+        keys.append(category["title_key"])
+        for item in category["items"]:
+            keys += [f"{item['key']}.src", f"{item['key']}.alt"]
+            if item["type"] == "video":
+                keys.append(f"{item['key']}.poster")
+    return keys
+
+
 def test_every_key_is_rendered_and_every_rendered_key_exists() -> None:
     """No template asks for a key nobody declared, and no declared key goes unrendered."""
-    assert check_templates(REGISTRY, "app") == []
+    assert check_templates(REGISTRY, "app", dynamic=gallery_keys()) == []
+
+
+def test_the_registry_declares_exactly_the_gallery_that_exists() -> None:
+    """The generated fields and app/content.py cannot drift: one is built from the other."""
+    assert set(gallery_keys()) <= set(REGISTRY.fields)
+    assert len(get_gallery()) == len(REGISTRY.groups_by_key["gallery"].sections)
 
 
 def test_the_public_page_renders_the_registry_defaults(app: Flask) -> None:
@@ -127,12 +165,8 @@ def test_a_published_edit_reaches_the_public_page(app: Flask) -> None:
     overrides table — every step here writes to it.
     """
     client = app.test_client()
-    login(client)
-
-    editor = client.get("/admin/content/").get_data(as_text=True)
-    csrf = CSRF_DATA.search(editor)
-    assert csrf is not None, "the editor carried no CSRF token"
-    headers = {"X-Sitecopy-CSRF": csrf.group(1)}
+    csrf = login(client)
+    headers = {"X-Sitecopy-CSRF": csrf}
 
     saved = client.post(
         "/admin/content/save",
@@ -146,8 +180,128 @@ def test_a_published_edit_reaches_the_public_page(app: Flask) -> None:
     assert "Hacemos todo, en serio." not in client.get("/").get_data(as_text=True)
     assert "Hacemos todo, en serio." in client.get("/?preview=1").get_data(as_text=True)
 
-    client.post("/admin/content/publish", data={"_sitecopy_csrf": csrf.group(1)})
+    client.post("/admin/content/publish", data={"_sitecopy_csrf": csrf})
     assert "Hacemos todo, en serio." in client.get("/").get_data(as_text=True)
+
+
+def test_a_size_reaches_the_public_page(app: Flask) -> None:
+    """With text sizes on, the rewrite must reach every visitor, not just an admin.
+
+    A size is rendered by rewriting the finished response, so anything that compresses
+    or rewrites the body has to be wired BEFORE SiteCopy. Without sizes that mistake was
+    only visible to an admin in ``?edit=1``; with them on, every visitor would see the
+    markers as empty boxes. This stages a real size and fetches the page as a visitor.
+    """
+    assert check_response_pipeline(app, "/", key="home.services.title") == []
+
+
+def test_media_and_attribute_only_copy_offer_no_size(app: Flask) -> None:
+    """A size wraps text in a span, so it is meaningless where no text is rendered.
+
+    Media fields hold a location, and an alt or aria-label never becomes visible text —
+    offering a size control on either is a button that silently does nothing.
+    """
+    not_resizable = {
+        key for key, field in REGISTRY.fields.items() if not field.is_resizable
+    }
+    assert "home.meta.description" in not_resizable
+    assert "home.lightbox.close" in not_resizable
+    assert "home.hero.video" in not_resizable
+    for category in get_gallery():
+        for item in category["items"]:
+            assert f"{item['key']}.src" in not_resizable
+            assert f"{item['key']}.alt" in not_resizable
+
+
+def test_an_uploaded_image_is_served_without_the_responsive_variants(app: Flask) -> None:
+    """A picture the editor uploads has no -400/-600 twins, so it gets no srcset.
+
+    Pointing srcset at variants that were never generated is two 404s per image and a
+    blank grid; the upload is served as it was uploaded instead.
+    """
+    from app.content import responsive_image
+
+    with app.app_context():
+        shipped = responsive_image("/static/assets/gallery/arte-01.webp")
+        uploaded = responsive_image("/uploads/0123456789abcdef.webp")
+
+    assert "400w" in shipped["srcset"] and "600w" in shipped["srcset"]
+    assert shipped["src"].endswith("-600.webp")
+    assert uploaded == {"src": "/uploads/0123456789abcdef.webp", "srcset": ""}
+
+
+def test_a_changed_gallery_piece_reaches_the_public_page(app: Flask) -> None:
+    """Publishing a new picture for a gallery piece swaps it, srcset included."""
+    client = app.test_client()
+    csrf = login(client)
+
+    key = f"{get_gallery()[0]['items'][1]['key']}.src"
+    saved = client.post(
+        "/admin/content/save",
+        json={"changes": {key: "/uploads/deadbeefdeadbeef.webp"}},
+        headers={"X-Sitecopy-CSRF": csrf},
+    )
+    assert saved.status_code == 200, saved.get_data(as_text=True)
+    assert saved.get_json()["ok"] is True
+    client.post("/admin/content/publish", data={"_sitecopy_csrf": csrf})
+
+    html = client.get("/").get_data(as_text=True)
+    assert "/uploads/deadbeefdeadbeef.webp" in html
+    # The replaced picture is gone, and took its stale srcset with it.
+    assert "assets/gallery/destacados-01.webp" not in html
+    assert "destacados-01-400.webp" not in html
+
+
+def test_an_upload_is_stored_and_served_back(app: Flask) -> None:
+    """The upload path this site wires by hand: into UPLOAD_FOLDER, out via serve_upload.
+
+    The library's default writes under ``static/``, which a container rebuild wipes.
+    This app points the store at the mounted volume instead, which only works if the
+    route that serves it back agrees about the URL prefix — so check the round trip
+    rather than just the store.
+    """
+    client = app.test_client()
+    csrf = login(client)
+    key = f"{get_gallery()[0]['items'][1]['key']}.src"
+
+    # A one-pixel PNG. The endpoint sniffs the real type from the bytes, so the bytes
+    # have to be a real PNG — a renamed text file is refused, which is the point.
+    png = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmM"
+        "IQAAAABJRU5ErkJggg=="
+    )
+    uploaded = client.post(
+        "/admin/content/upload",
+        data={"key": key, "file": (io.BytesIO(png), "photo.png")},
+        content_type="multipart/form-data",
+        headers={"X-Sitecopy-CSRF": csrf},
+    )
+    assert uploaded.status_code == 200, uploaded.get_data(as_text=True)
+    body = uploaded.get_json()
+    assert body["ok"] is True and body["type"] == "image"
+
+    url = body["url"]
+    assert url.startswith("/uploads/"), f"stored outside the mounted volume: {url}"
+    served = client.get(url)
+    assert served.status_code == 200
+    assert served.get_data() == png
+
+
+def test_an_upload_that_is_not_really_an_image_is_refused(app: Flask) -> None:
+    """The filename is not evidence: an HTML polyglot named .png is stored XSS."""
+    client = app.test_client()
+    csrf = login(client)
+    refused = client.post(
+        "/admin/content/upload",
+        data={
+            "key": f"{get_gallery()[0]['items'][1]['key']}.src",
+            "file": (io.BytesIO(b"<html><script>alert(1)</script>"), "photo.png"),
+        },
+        content_type="multipart/form-data",
+        headers={"X-Sitecopy-CSRF": csrf},
+    )
+    assert refused.status_code == 400
+    assert refused.get_json()["ok"] is False
 
 
 def test_the_editor_is_closed_to_the_public(app: Flask) -> None:

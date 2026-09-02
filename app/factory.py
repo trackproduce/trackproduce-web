@@ -11,6 +11,7 @@ from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from sitecopy import LocalFileStore, SiteCopy, t
 
+from app.content import STATIC_PREFIX, responsive_image
 from app.registry import REGISTRY
 
 load_dotenv()
@@ -99,14 +100,23 @@ def create_app() -> Flask:
         # Uploads land in the mounted UPLOAD_FOLDER volume, not under static/, so they
         # survive an image rebuild. ``serve_upload`` in routes.py serves them back.
         files=LocalFileStore(app.config["UPLOAD_FOLDER"], "/uploads"),
-        external_content={
-            "selector": '.card, .filter:not([data-filter="all"])',
-            "message": (
-                "Las piezas de la galería y los nombres de las categorías viajan con "
-                "los archivos, en app/content.py. Se cambian con un deploy."
-            ),
-        },
+        # Let the editor change how big a text renders. The wrapper this puts around a
+        # sized value is a <span>, so the site's CSS must not style bare descendant
+        # spans — `.brand__accent` and `.site-nav__num` carry classes for that reason.
+        # Fields that only ever land in an attribute opt out in the registry instead:
+        # there is no text on the page for a size to apply to.
+        text_sizes=True,
     )
+
+    # The gallery's registry defaults are literal "/static/…" strings built at import,
+    # with no app to ask. A different static_url_path would 404 every piece at once, so
+    # fail at boot rather than serving a gallery of broken images.
+    if app.static_url_path != STATIC_PREFIX:
+        raise RuntimeError(
+            f"app/content.py builds gallery defaults under {STATIC_PREFIX!r}, but this "
+            f"app serves static files from {app.static_url_path!r}."
+        )
+    app.jinja_env.globals["responsive_image"] = responsive_image
 
     with app.app_context():
         # Import models so SQLAlchemy/Migrate can discover them.

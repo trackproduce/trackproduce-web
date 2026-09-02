@@ -42,7 +42,7 @@
 </head>
 <body>
     <header class="site-header" id="site-header">
-        <a class="brand" href="#top">{{ t('global.wordmark.start') }}<span>{{ t('global.wordmark.end') }}</span><i class="brand__mark" aria-hidden="true"></i></a>
+        <a class="brand" href="#top">{{ t('global.wordmark.start') }}<span class="brand__accent">{{ t('global.wordmark.end') }}</span><i class="brand__mark" aria-hidden="true"></i></a>
         <!-- The two data-label-* values are read back by main.js when the menu opens and
              closes; t_plain keeps them free of editor markers, since JS reads the raw
              attribute rather than the rewritten HTML. -->
@@ -52,9 +52,9 @@
             <span></span><span></span><span></span>
         </button>
         <nav class="site-nav" id="site-nav">
-            <a href="#servicios"><span>01</span> {{ t('home.nav.services') }}</a>
-            <a href="#trabajo"><span>02</span> {{ t('home.nav.work') }}</a>
-            <a href="#contacto"><span>03</span> {{ t('home.nav.contact') }}</a>
+            <a href="#servicios"><span class="site-nav__num">01</span> {{ t('home.nav.services') }}</a>
+            <a href="#trabajo"><span class="site-nav__num">02</span> {{ t('home.nav.work') }}</a>
+            <a href="#contacto"><span class="site-nav__num">03</span> {{ t('home.nav.contact') }}</a>
         </nav>
         <div class="nav-backdrop" id="nav-backdrop" hidden></div>
     </header>
@@ -139,34 +139,36 @@
         <div class="filters" role="group" aria-label="{{ t('home.work.filters_label') }}">
             <button class="filter is-active" type="button" data-filter="all" aria-pressed="true">{{ t('home.work.filter_all') }}</button>
             {% for cat in gallery %}
-            <button class="filter" type="button" data-filter="{{ cat.slug }}" aria-pressed="false">{{ cat.title }}</button>
+            <button class="filter" type="button" data-filter="{{ cat.slug }}" aria-pressed="false">{{ t(cat.title_key) }}</button>
             {% endfor %}
         </div>
 
         <div class="gallery">
             {% for cat in gallery %}
                 {% for item in cat['items'] %}
+                {#- `t()` in the attribute so the visual editor can wire its "cambiar"
+                    control to this piece; `t_plain()` to look up the responsive variants,
+                    which needs the value itself rather than a marked-up copy of it. -#}
+                {%- set media = responsive_image(t_plain(item.key ~ '.src')) %}
                 <figure class="card" data-cat="{{ cat.slug }}"
                         style="--w: {{ item.width }}; --h: {{ item.height }};"
                         data-type="{{ item.type }}"
-                        data-src="{{ url_for('static', filename=item.src) }}"
-                        tabindex="0" aria-label="{{ item.alt }}">
+                        data-src="{{ t(item.key ~ '.src') }}"
+                        tabindex="0" aria-label="{{ t(item.key ~ '.alt') }}">
                     {% if item.type == 'video' %}
                         <video class="card__media" muted loop playsinline preload="none"
-                               poster="{{ url_for('static', filename=item.poster) }}"></video>
+                               poster="{{ t(item.key ~ '.poster') }}"></video>
                         <span class="card__badge" aria-hidden="true">▶</span>
                     {% else %}
-                        {% set base = item.src.rsplit('.', 1)[0] %}
                         <img class="card__media" loading="lazy"
-                             src="{{ url_for('static', filename=base ~ '-600.webp') }}"
-                             srcset="{{ url_for('static', filename=base ~ '-400.webp') }} 400w,
-                                     {{ url_for('static', filename=base ~ '-600.webp') }} 600w"
-                             sizes="(max-width: 540px) 100vw, (max-width: 900px) 50vw, 33vw"
+                             src="{{ t(item.key ~ '.src') }}"
+                             {% if media.srcset %}srcset="{{ media.srcset }}"
+                             sizes="(max-width: 540px) 100vw, (max-width: 900px) 50vw, 33vw"{% endif %}
                              width="{{ item.width }}" height="{{ item.height }}"
-                             alt="{{ item.alt }}" />
+                             alt="{{ t(item.key ~ '.alt') }}" />
                     {% endif %}
                     <figcaption class="card__cap">
-                        <span class="card__cat">{{ cat.title }}</span>
+                        <span class="card__cat">{{ t(cat.title_key) }}</span>
                     </figcaption>
                 </figure>
                 {% endfor %}
@@ -186,7 +188,7 @@
 
     <footer class="site-footer">
         <div class="site-footer__top">
-            <a class="brand" href="#top">{{ t('global.wordmark.start') }}<span>{{ t('global.wordmark.end') }}</span></a>
+            <a class="brand" href="#top">{{ t('global.wordmark.start') }}<span class="brand__accent">{{ t('global.wordmark.end') }}</span></a>
             <nav class="site-footer__nav">
                 <a href="#servicios">{{ t('home.nav.services') }}</a>
                 <a href="#trabajo">{{ t('home.nav.work') }}</a>
