@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "flask",
   "functions": {
     "wsgi.py": {
       "excludeFiles": "{tests/**,plans/**,docs/**,scripts/**,migrations/**,instagram-trackproduce/**,.venv/**,**/__pycache__/**}"
