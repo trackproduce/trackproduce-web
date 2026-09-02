@@ -2,6 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "flask",
   "buildCommand": "python scripts/collect_static.py",
+  "outputDirectory": "public",
   "functions": {
     "wsgi.py": {
       "excludeFiles": "{tests/**,plans/**,docs/**,instagram-trackproduce/**,.venv/**,**/__pycache__/**}"
