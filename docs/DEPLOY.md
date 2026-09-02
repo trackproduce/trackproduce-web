@@ -65,21 +65,36 @@ Set in the Vercel project (Settings → Environment Variables), Production and P
 ## Domain and DNS
 
 `trackproduce.com` is registered at **DonWeb**, resolved by **Cloudflare**, served by
-**Vercel**.
+**Vercel** — and its **mail still lives at DonWeb**, which is what makes the record set
+worth reading before touching it.
 
-- At DonWeb: nameservers point at the pair Cloudflare assigned to the zone.
-- In Cloudflare, both records **DNS only (grey cloud)** — Vercel issues the certificate and
-  serves the traffic, and proxying would put a second CDN in front of it:
+Everything is **DNS only (grey cloud)**: Vercel issues the certificate and serves the
+site, and Cloudflare's proxy only speaks HTTP, so a proxied mail or FTP host would break
+those protocols outright.
 
-  | Type | Name | Value |
-  |------|------|-------|
-  | A | `@` | `76.76.21.21` |
-  | CNAME | `www` | `cname.vercel-dns.com` |
+| Type | Name | Value | Why |
+|------|------|-------|-----|
+| A | `@` | `76.76.21.21` | the site, on Vercel |
+| CNAME | `www` | `cname.vercel-dns.com` | redirects to the apex (308, set on the project) |
+| MX | `@` | `0 mail`, `20 mx1` | mail, still DonWeb |
+| A | `mail` / `mx1` / `ftp` | `200.58.112.169` / `200.58.122.206` / `200.58.112.169` | mail and FTP hosts |
+| CNAME | `autoconfig`, `autodiscover` | `mail.trackproduce.com` | mail clients, **not** the website |
+| TXT | `@`, `mail._domainkey`, `_dmarc` | SPF, DKIM, DMARC | deliverability |
 
-- In Vercel: add `trackproduce.com` and `www.trackproduce.com` to the project, with `www`
-  redirecting to the apex.
+Three traps this zone already walked into, kept here because they are silent:
+
+- **No `AAAA` on the apex.** Vercel publishes no IPv6 for `76.76.21.21`, and Cloudflare's
+  scan imported DonWeb's, so IPv6 visitors would have kept seeing the old site. It is
+  deleted on purpose — do not let an import put it back.
+- **`autoconfig`/`autodiscover` must point at the mail host.** They pointed at
+  `trackproduce.com`, which used to be the same machine as the mail server and is now
+  Vercel, so mail clients would autoconfigure against a website.
+- **Nothing about mail may be proxied.** Cloudflare's scan imports mail and FTP hosts
+  orange by default.
 
 ## Local development
+
+
 
 ```bash
 python -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
