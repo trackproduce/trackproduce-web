@@ -126,11 +126,26 @@ def static_url(src: str) -> str:
     return f"{STATIC_PREFIX}/{src}"
 
 
+def deploy_version() -> str:
+    """The deploy's own version stamp, where the platform gives one.
+
+    Vercel bakes a fixed mtime into every file it bundles, so on the deployed site an
+    mtime stamp is the same number for every file and for every release — a replaced
+    picture would keep serving the old bytes for the whole year the cache allows. The
+    commit is what actually moves when a shipped file can have changed, so it stands in
+    as the stamp there. Empty anywhere else, where mtimes mean what they say.
+    """
+    return os.environ.get("VERCEL_GIT_COMMIT_SHA", "")[:8]
+
+
 @lru_cache(maxsize=1024)
 def _mtime_tag(src: str, static_folder: str) -> str:
     prefix = f"{STATIC_PREFIX}/"
     if not src.startswith(prefix) or "?" in src:
         return ""
+    version = deploy_version()
+    if version:
+        return f"?v={version}"
     try:
         return f"?v={int(os.stat(os.path.join(static_folder, src[len(prefix):])).st_mtime)}"
     except OSError:

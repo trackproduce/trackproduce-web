@@ -13,12 +13,11 @@ DNS is on **Cloudflare** and resolves `trackproduce.com` to Vercel.
 | Entrypoint | `wsgi.py` — the Python runtime looks for a top-level `app` in a handful of file names, and this is one of them |
 | Python | `.python-version` (3.12) |
 | Dependencies | `requirements.txt` (runtime only; tests live in `requirements-dev.txt`) |
-| Static files | `app/static/**`, copied to `public/static` by the Build Command so the CDN answers `/static/…` |
+| Static files | `app/static/**`, served by Flask and cached at the edge (`x-vercel-cache: HIT` after the first request) |
 | Everything else | one Vercel Function running the Flask app |
-| Build Command | `python scripts/collect_static.py` (`vercel.json`) |
 | Function config | `vercel.json` — the `excludeFiles` glob keeps tests and docs out of the bundle |
 
-Two consequences of running serverless are wired into the app on purpose:
+Three consequences of running on Vercel are wired into the app on purpose:
 
 - **The filesystem is read-only.** Uploads from the content editor go to Vercel Blob
   (`app/media_store.py`) whenever `BLOB_READ_WRITE_TOKEN` is set, and to the local
@@ -26,13 +25,14 @@ Two consequences of running serverless are wired into the app on purpose:
 - **Boot happens constantly.** `create_app()` skips `db.create_all()` / `ensure_schema()`
   on Vercel (`auto_schema()` in `app/factory.py`) so no cold start spends round trips on
   DDL. `scripts/init_db.py` does it once instead — see below.
-- **`public/` is generated, and the function cannot read it.** Vercel serves `public/`
-  from the CDN *and* strips it from the function bundle, but `app/content.py` reads those
-  same files to stamp URLs and to know which responsive variants exist. So the files live
-  in `app/static` (bundled with the code) and the build copies them out —
-  `scripts/collect_static.py`. `public/` is gitignored: never edit it, never commit it.
-  `includeFiles` in `vercel.json` does not work around this; the Python builder ignores it
-  for `public/`.
+- **Static files stay in `app/static`, not in `public/`.** Vercel's advice is to serve
+  static assets from `public/`, but it strips that directory out of the function bundle,
+  and `app/content.py` reads those same files to stamp each URL and to know which
+  responsive variants exist — so a `public/`-only copy breaks the gallery. Keeping them in
+  the package costs nothing real: Flask answers `/static/…` once and the edge caches the
+  response for a year. (`includeFiles` does not bring `public/` back into the bundle, and
+  a build step that copies into `public/` is not picked up by the Flask preset — both were
+  tried.)
 
 ## Environment variables
 
@@ -96,10 +96,11 @@ Tests — including the performance suite — need browsers once:
 
 ## Worth knowing
 
-- **Every deploy re-stamps the static URLs.** `media_src()` busts the year-long cache with
-  `?v=<mtime>`, and a fresh checkout gives every file a new mtime, so returning visitors
-  re-download assets after a deploy even when the bytes are identical. Harmless, but it is
-  why the numbers move on their own.
+- **The cache stamp is the commit, not the mtime.** Vercel freezes every bundled file's
+  mtime at the same value, so the `?v=` stamp the site relies on would never change and a
+  replaced picture would serve stale bytes for a year. `deploy_version()` in
+  `app/content.py` uses `VERCEL_GIT_COMMIT_SHA` instead wherever the platform sets it.
+  The trade-off is that all assets re-download after a deploy, identical bytes included.
 - **The Blob API version is pinned** in `app/media_store.py` (`x-api-version`). If uploads
   start failing with a 4xx after a Blob release, that constant is the first place to look.
 - **Preview deployments share the production database** unless a separate Neon branch is

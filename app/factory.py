@@ -13,7 +13,7 @@ from markupsafe import Markup
 from sitecopy import FileStore, LocalFileStore, SiteCopy, is_edit_mode, t
 from sitecopy.resolver import editable
 
-from app.content import STATIC_PREFIX, media_src, responsive_image
+from app.content import STATIC_PREFIX, deploy_version, media_src, responsive_image
 from app.media_store import VercelBlobStore
 from app.registry import REGISTRY
 
@@ -144,8 +144,14 @@ def create_app() -> Flask:
 
     @app.url_defaults
     def _static_cache_buster(endpoint: str, values: dict[str, object]) -> None:
-        """Append ``?v=<mtime>`` to ``static`` URLs so the long cache never stales."""
+        """Append ``?v=…`` to ``static`` URLs so the long cache never stales."""
         if endpoint != "static" or "filename" not in values:
+            return
+        # Deployed, the commit is the stamp: the bundle's mtimes are all the same frozen
+        # number, so they would never bust anything. See ``deploy_version()``.
+        version = deploy_version()
+        if version:
+            values["v"] = version
             return
         filename = values["filename"]
         if not isinstance(filename, str) or app.static_folder is None:

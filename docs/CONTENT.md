@@ -70,8 +70,9 @@ Two things worth knowing:
   full responsive treatment, commit it under `app/static/assets/gallery/`, run the
   script, and point the field at it.
 - **Media URLs are cache-stamped by `media_src()`,** not by `url_for`. Static files are
-  cached for a year, which is only safe because every URL carries a `?v=<mtime>` that
-  changes when the file does — and a value resolved from the registry never passes through
+  cached for a year, which is only safe because every URL carries a `?v=` stamp that
+  changes when the file can have changed (the file's mtime locally, the deploy's commit
+  on Vercel — see `deploy_version()`) — and a value resolved from the registry never passes through
   `url_for` to get one. Anything rendering a `/static/…` value from a field must go through
   `media_src()` (or `responsive_image()`, which uses it), or replacing that file in a deploy
   will keep serving the old bytes for up to a year.

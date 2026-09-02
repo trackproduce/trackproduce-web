@@ -239,7 +239,7 @@ def test_an_uploaded_image_is_served_without_the_responsive_variants(app: Flask)
         uploaded = responsive_image("/uploads/0123456789abcdef.webp")
 
     assert "400w" in shipped["srcset"] and "600w" in shipped["srcset"]
-    assert re.fullmatch(r"/static/assets/gallery/arte-01-600\.webp\?v=\d+", shipped["src"])
+    assert re.fullmatch(r"/static/assets/gallery/arte-01-600\.webp\?v=[0-9a-f]+", shipped["src"])
     # An upload is already content-addressed, so it needs no stamp and has no variants.
     assert uploaded == {"src": "/uploads/0123456789abcdef.webp", "srcset": ""}
 
@@ -254,10 +254,37 @@ def test_every_static_media_url_carries_a_cache_stamp(app: Flask) -> None:
     html = app.test_client().get("/").get_data(as_text=True)
     served = re.findall(r'(?:src|poster|data-src)="(/static/[^"]*)"', html)
     assert served, "the page rendered no static media at all — the check proves nothing"
-    unstamped = sorted({url for url in served if not re.search(r"\?v=\d+$", url)})
+    unstamped = sorted({url for url in served if not re.search(r"\?v=[0-9a-f]+$", url)})
     assert unstamped == [], f"static media served without a cache stamp: {unstamped}"
     # And the stamp is on the responsive variants too, not just the plain src.
-    assert re.search(r'srcset="/static/[^"]+\?v=\d+ 400w', html)
+    assert re.search(r'srcset="/static/[^"]+\?v=[0-9a-f]+ 400w', html)
+
+
+def test_the_deploy_commit_is_the_stamp_when_the_platform_gives_one(
+    app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """On Vercel an mtime stamps nothing: the bundle freezes every file's mtime.
+
+    Every file would carry the same number, for every release, so replacing a shipped
+    picture would go on serving the old bytes for the year the cache allows. The commit
+    is what moves when a shipped file can have changed, so it becomes the stamp — and it
+    has to reach the URLs the registry resolves *and* the ones ``url_for`` builds.
+    """
+    from app.content import _mtime_tag, _srcset
+
+    monkeypatch.setenv("VERCEL_GIT_COMMIT_SHA", "abc123def456789")
+    # Both helpers memoize per (src, static folder), which would otherwise hand back
+    # values computed before the environment said anything about a deploy.
+    _mtime_tag.cache_clear()
+    _srcset.cache_clear()
+
+    html = app.test_client().get("/").get_data(as_text=True)
+
+    stamps = set(re.findall(r"/static/[^\"\s]+\?v=([0-9a-f]+)", html))
+    assert stamps == {"abc123de"}, f"stamps that are not the commit: {stamps}"
+
+    _mtime_tag.cache_clear()
+    _srcset.cache_clear()
 
 
 def test_the_public_page_has_no_editor_only_attributes(app: Flask) -> None:
