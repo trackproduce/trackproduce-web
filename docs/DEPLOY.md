@@ -94,8 +94,6 @@ Three traps this zone already walked into, kept here because they are silent:
 
 ## Local development
 
-
-
 ```bash
 python -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 cp .env.example .env          # fill SECRET_KEY and SITECOPY_PASSWORD to use the editor
