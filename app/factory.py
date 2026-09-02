@@ -21,14 +21,6 @@ load_dotenv()
 
 DEFAULT_SITE_URL = "https://trackproduce.com"
 
-# Static files live in ``public/`` rather than under the package: that is the directory
-# Vercel serves from its CDN, so in production ``/static/…`` is answered at the edge and
-# never reaches the function. Flask still points at the same folder, which keeps
-# ``url_for('static', …)`` and the on-disk checks in ``app/content.py`` working
-# identically in development, in Docker and in the deployed bundle.
-REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-STATIC_FOLDER = os.path.join(REPO_ROOT, "public", STATIC_PREFIX.strip("/"))
-
 # Extensions are created at module level so models and repositories can import
 # them (e.g. ``from app.factory import db``).
 db: SQLAlchemy = SQLAlchemy()
@@ -102,7 +94,12 @@ def auto_schema() -> bool:
 
 def create_app() -> Flask:
     """Create, configure and return the Flask application."""
-    app = Flask(__name__, static_folder=STATIC_FOLDER, static_url_path=STATIC_PREFIX)
+    # Static files stay in the package, where ``app/content.py`` can read them: Vercel
+    # keeps ``public/`` out of the function bundle, so serving from there would leave the
+    # cache stamps and the responsive variants with nothing to look at. The build copies
+    # this folder to ``public/static`` (``scripts/collect_static.py``) so the CDN answers
+    # those requests in production and this route only ever runs in development.
+    app = Flask(__name__)
 
     app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
         "DATABASE_URL", "sqlite:///local.db"
@@ -187,12 +184,14 @@ def create_app() -> Flask:
     )
 
     # The gallery's registry defaults are literal "/static/…" strings built at import,
-    # and ``content.py`` reads the files themselves to decide which responsive variants
-    # exist. A missing folder — excluded from the deployed bundle, say — would 404 every
-    # piece at once, so fail at boot rather than serve a gallery of broken images.
-    if not os.path.isdir(STATIC_FOLDER):
+    # with no app to ask, and ``content.py`` reads the files themselves to decide which
+    # responsive variants exist. A different prefix, or a folder that did not survive the
+    # deploy, would 404 every piece at once — so fail at boot rather than serve a gallery
+    # of broken images.
+    if app.static_url_path != STATIC_PREFIX or not os.path.isdir(app.static_folder or ""):
         raise RuntimeError(
-            f"static files are served from {STATIC_FOLDER!r}, which does not exist."
+            f"app/content.py builds gallery defaults under {STATIC_PREFIX!r}, but this app "
+            f"serves {app.static_url_path!r} from {app.static_folder!r}."
         )
     app.jinja_env.globals["responsive_image"] = responsive_image
     app.jinja_env.globals["media_src"] = media_src

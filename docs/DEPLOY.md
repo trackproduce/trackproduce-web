@@ -13,9 +13,10 @@ DNS is on **Cloudflare** and resolves `trackproduce.com` to Vercel.
 | Entrypoint | `wsgi.py` — the Python runtime looks for a top-level `app` in a handful of file names, and this is one of them |
 | Python | `.python-version` (3.12) |
 | Dependencies | `requirements.txt` (runtime only; tests live in `requirements-dev.txt`) |
-| Static files | `public/static/**`, served from the CDN — a `/static/…` request never reaches the function |
+| Static files | `app/static/**`, copied to `public/static` by the Build Command so the CDN answers `/static/…` |
 | Everything else | one Vercel Function running the Flask app |
-| Function config | `vercel.json` — the `excludeFiles` glob keeps tests, docs and scripts out of the bundle |
+| Build Command | `python scripts/collect_static.py` (`vercel.json`) |
+| Function config | `vercel.json` — the `excludeFiles` glob keeps tests and docs out of the bundle |
 
 Two consequences of running serverless are wired into the app on purpose:
 
@@ -25,6 +26,13 @@ Two consequences of running serverless are wired into the app on purpose:
 - **Boot happens constantly.** `create_app()` skips `db.create_all()` / `ensure_schema()`
   on Vercel (`auto_schema()` in `app/factory.py`) so no cold start spends round trips on
   DDL. `scripts/init_db.py` does it once instead — see below.
+- **`public/` is generated, and the function cannot read it.** Vercel serves `public/`
+  from the CDN *and* strips it from the function bundle, but `app/content.py` reads those
+  same files to stamp URLs and to know which responsive variants exist. So the files live
+  in `app/static` (bundled with the code) and the build copies them out —
+  `scripts/collect_static.py`. `public/` is gitignored: never edit it, never commit it.
+  `includeFiles` in `vercel.json` does not work around this; the Python builder ignores it
+  for `public/`.
 
 ## Environment variables
 

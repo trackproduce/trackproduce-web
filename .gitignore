@@ -15,3 +15,4 @@ _curacion/
 uploads/
 .vercel
 .env.local
+/public/

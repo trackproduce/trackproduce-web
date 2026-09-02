@@ -2,7 +2,7 @@
 
 This document describes the standard structure and patterns used in this Flask application. Use it as a blueprint for new Flask projects so they stay consistent and maintainable.
 
-**Where this project diverges:** it deploys to Vercel, not to the local server, so static files live in `public/static/` (the directory Vercel serves from its CDN) rather than in `app/static/`, `wsgi.py` is the entrypoint, and there is no `Jenkinsfile` or metrics wiring. See [DEPLOY.md](DEPLOY.md).
+**Where this project diverges:** it deploys to Vercel, not to the local server, so `wsgi.py` is the entrypoint, the build copies `app/static/` into a generated `public/static/` for the CDN, and there is no `Jenkinsfile` or metrics wiring. See [DEPLOY.md](DEPLOY.md).
 
 **Quick reference — request flow:**  
 `run.py` → `app` (from `app.factory.create_app()`) → `register_routes(app)` → route handler → **Repository** → **Model** + `db` → response.

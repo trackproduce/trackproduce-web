@@ -1,10 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "flask",
+  "buildCommand": "python scripts/collect_static.py",
   "functions": {
     "wsgi.py": {
-      "includeFiles": "public/static/**",
-      "excludeFiles": "{tests/**,plans/**,docs/**,scripts/**,migrations/**,instagram-trackproduce/**,.venv/**,**/__pycache__/**}"
+      "excludeFiles": "{tests/**,plans/**,docs/**,instagram-trackproduce/**,.venv/**,**/__pycache__/**}"
     }
   },
   "headers": [

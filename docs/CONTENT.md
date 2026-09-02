@@ -67,7 +67,7 @@ Two things worth knowing:
   repo. `responsive_image()` in `app/content.py` checks, and serves an upload as-is rather
   than pointing `srcset` at two URLs that would 404. It is also cropped to the aspect ratio
   the piece already had in the grid, so a similar shape uploads best. To give an upload the
-  full responsive treatment, commit it under `public/static/assets/gallery/`, run the
+  full responsive treatment, commit it under `app/static/assets/gallery/`, run the
   script, and point the field at it.
 - **Media URLs are cache-stamped by `media_src()`,** not by `url_for`. Static files are
   cached for a year, which is only safe because every URL carries a `?v=<mtime>` that
