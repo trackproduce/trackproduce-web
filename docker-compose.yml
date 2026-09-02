@@ -1,3 +1,6 @@
+# Local development only — the deployed site runs on Vercel (see docs/DEPLOY.md).
+# What this buys over `flask run` is the same Postgres the deployed site talks to, and
+# an uploads volume, so the content editor can be exercised end to end offline.
 services:
   app:
     build:
@@ -5,34 +8,21 @@ services:
       dockerfile: Dockerfile
     container_name: trackproduce-web-app
     environment:
-      - DATABASE_URL=postgresql://trackproduce:${POSTGRES_PASSWORD}@trackproduce-web-db:5432/trackproduce
+      - DATABASE_URL=postgresql://trackproduce:${POSTGRES_PASSWORD:-trackproduce}@db:5432/trackproduce
       - UPLOAD_FOLDER=/app/uploads
       - FLASK_DEBUG=0
-      - VIRTUAL_HOST=trackproduce.nexttech.com.ar
-      - VIRTUAL_PORT=7015
-      - UMAMI_WEBSITE_ID=ed7bc6c8-4375-4f01-abcf-5868b70278d9
-      - SITE_URL=https://trackproduce.nexttech.com.ar
-      # Content editor (/admin/content). Both come from the host .env — never
-      # hardcoded here. SECRET_KEY signs the admin session, so it must be stable
-      # across the gunicorn workers or the login stops sticking.
-      - SECRET_KEY=${SECRET_KEY}
-      - SITECOPY_PASSWORD=${SITECOPY_PASSWORD}
+      - SITE_URL=http://localhost:7015
+      # The content editor's login. Unset, the panel refuses every password.
+      - SECRET_KEY=${SECRET_KEY:-}
+      - SITECOPY_PASSWORD=${SITECOPY_PASSWORD:-}
     ports:
       - "7015:7015"
-    expose:
-      - "7015"
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
     volumes:
       - uploads:/app/uploads
-    networks:
-      - proxy
-      - internal
-    labels:
-      - "com.github.nginx-proxy.nginx_proxy=true"
-      - com.github.nginxproxy.nginx-proxy.startup_wait=30
 
   db:
     image: postgres:16
@@ -40,7 +30,7 @@ services:
     environment:
       - POSTGRES_DB=trackproduce
       - POSTGRES_USER=trackproduce
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-trackproduce}
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
@@ -50,52 +40,6 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
-    # IMPORTANT: db must NOT be on the shared external `proxy` network.
-    # Every project's db service shares the alias `db` there, so the bare
-    # hostname `db` round-robins across ALL projects' Postgres → the app gets
-    # another project's DB → `password authentication failed` → 502 the next
-    # time the app container is recreated. Keep db on the private `internal`
-    # net so its name/alias is unique to this project.
-    networks:
-      - internal
-
-  postgres-exporter:
-    image: prometheuscommunity/postgres-exporter:latest
-    container_name: trackproduce-web-postgres-exporter
-    environment:
-      - DATA_SOURCE_NAME=postgresql://trackproduce:${POSTGRES_PASSWORD}@trackproduce-web-db:5432/trackproduce?sslmode=disable
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: unless-stopped
-    # `proxy` so the central prometheus can scrape it by container name on 9187;
-    # `internal` so it can reach the db. Reaches the db by its unique container
-    # name (trackproduce-web-db), never the bare `db` alias.
-    networks:
-      - proxy
-      - internal
-
-  promtail:
-    build:
-      context: .
-      dockerfile: Dockerfile.promtail
-    image: trackproduce-web-promtail
-    container_name: trackproduce-web-promtail
-    restart: unless-stopped
-    # Config is baked into the image (Dockerfile.promtail) — NOT bind-mounted.
-    # A bind-mount of ./promtail.yml fails under Jenkins because the workspace
-    # lives in the named volume `jenkins-data`, so the host daemon can't resolve
-    # the path and mounts an empty dir → "not a directory" crash.
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    networks:
-      - proxy
-
-networks:
-  proxy:
-    external: true
-  internal:
-    driver: bridge
 
 volumes:
   pgdata:

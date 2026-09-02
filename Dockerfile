@@ -1,4 +1,7 @@
-FROM python:3.11-slim
+# Local development image (docker-compose.yml). The deployed site runs on Vercel,
+# which builds from requirements.txt and serves wsgi.py itself — see docs/DEPLOY.md.
+# Python 3.12 to match the runtime Vercel pins in .python-version.
+FROM python:3.12-slim
 
 ENV PYTHONUNBUFFERED=1 \
     FLASK_APP=run.py \
@@ -19,5 +22,5 @@ RUN mkdir -p uploads
 
 EXPOSE 7015
 
-# Production WSGI server (Werkzeug's dev server is not for production).
-CMD ["gunicorn", "--bind", "0.0.0.0:7015", "--workers", "2", "--threads", "4", "run:app"]
+# Werkzeug's dev server is not for serving, even locally behind compose.
+CMD ["gunicorn", "--bind", "0.0.0.0:7015", "--workers", "2", "--threads", "4", "wsgi:app"]

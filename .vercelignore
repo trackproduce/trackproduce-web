@@ -1,0 +1,13 @@
+# Only matters for `vercel deploy` / `vercel dev` from a laptop: a Git deploy uploads
+# what is committed. Keeps the local scrape folder and the virtualenv out of the upload.
+.git
+.venv
+venv
+__pycache__
+*.pyc
+.env
+instagram-trackproduce/
+_curacion/
+tests/screenshots/
+plans/
+uploads/

@@ -1,0 +1,5 @@
+# Tests and tooling. Not installed on Vercel: the function only needs requirements.txt.
+-r requirements.txt
+pytest==8.3.3
+playwright==1.47.0
+pillow==12.2.0  # scripts/gen_responsive_images.py (responsive image variants)

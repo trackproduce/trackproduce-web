@@ -311,10 +311,13 @@ def test_a_changed_gallery_piece_reaches_the_public_page(app: Flask) -> None:
 def test_an_upload_is_stored_and_served_back(app: Flask) -> None:
     """The upload path this site wires by hand: into UPLOAD_FOLDER, out via serve_upload.
 
-    The library's default writes under ``static/``, which a container rebuild wipes.
-    This app points the store at the mounted volume instead, which only works if the
-    route that serves it back agrees about the URL prefix — so check the round trip
-    rather than just the store.
+    The library's default writes under ``static/``, which a rebuild wipes. This app points
+    the store at the mounted volume instead, which only works if the route that serves it
+    back agrees about the URL prefix — so check the round trip rather than just the store.
+
+    This is the development half of :func:`app.factory.file_store`; deployed, uploads go to
+    Vercel Blob instead (``tests/test_media_store.py``) because the filesystem is read-only
+    there.
     """
     client = app.test_client()
     csrf = login(client)

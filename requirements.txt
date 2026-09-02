@@ -1,13 +1,8 @@
 flask==3.0.3
 flask-compress==1.24
-gunicorn==23.0.0
-python-dotenv==1.0.1
 flask-sqlalchemy==3.1.1
 flask-migrate==4.0.7
 flask-sitecopy==0.7.0  # editable site copy at /admin/content (app/registry.py)
 psycopg2-binary==2.9.9
-prometheus_flask_exporter==0.23.1
-psutil==6.0.0
-pytest==8.3.3
-playwright==1.47.0
-pillow==12.2.0  # scripts/gen_responsive_images.py (responsive image variants)
+python-dotenv==1.0.1
+gunicorn==23.0.0  # the WSGI server of the Docker image; on Vercel the runtime serves wsgi.py

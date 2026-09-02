@@ -14,10 +14,10 @@ import os
 
 from PIL import Image
 
-STATIC = os.path.join(os.path.dirname(__file__), "..", "app", "static")
+STATIC = os.path.join(os.path.dirname(__file__), "..", "public", "static")
 
 # EDIT for your project: the images flagged by `test_images_are_not_oversized`,
-# as paths under app/static WITHOUT extension. These are card/grid images shown
+# as paths under public/static WITHOUT extension. These are card/grid images shown
 # small but served at full resolution. Here: every still-image in the gallery
 # grid (videos use posters and aren't <img>, so they don't trip the test).
 BASES = [

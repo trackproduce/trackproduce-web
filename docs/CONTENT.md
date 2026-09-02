@@ -67,8 +67,8 @@ Two things worth knowing:
   repo. `responsive_image()` in `app/content.py` checks, and serves an upload as-is rather
   than pointing `srcset` at two URLs that would 404. It is also cropped to the aspect ratio
   the piece already had in the grid, so a similar shape uploads best. To give an upload the
-  full responsive treatment, commit it under `static/assets/gallery/`, run the script, and
-  point the field at it.
+  full responsive treatment, commit it under `public/static/assets/gallery/`, run the
+  script, and point the field at it.
 - **Media URLs are cache-stamped by `media_src()`,** not by `url_for`. Static files are
   cached for a year, which is only safe because every URL carries a `?v=<mtime>` that
   changes when the file does — and a value resolved from the registry never passes through
@@ -113,10 +113,17 @@ for a wrapper to go around, so the control would silently do nothing. `url`, `im
 - **`SECRET_KEY` must be set in every deployed environment.** It signs the admin session.
   Unset, the factory generates one per process, so with more than one gunicorn worker the
   login stops sticking.
-- **Uploads** land in `UPLOAD_FOLDER` (a mounted volume, so a rebuild does not wipe them)
-  and are served back by the `serve_upload` route. Their names are content hashes. Only
-  `png/jpg/webp/gif` and `mp4/webm` are accepted, sniffed from the bytes rather than the
-  filename.
+- **Uploads land in Vercel Blob in production, on disk in development.** The deployed site
+  runs on a read-only filesystem, so `file_store()` in `app/factory.py` picks the store by
+  whether `BLOB_READ_WRITE_TOKEN` is set: `VercelBlobStore` (`app/media_store.py`), whose
+  files are served from Blob's own CDN domain, or `LocalFileStore` writing to
+  `UPLOAD_FOLDER` and served back by the `serve_upload` route. Either way the name is the
+  hash of the bytes, so a URL always denotes the same file and re-uploading one the editor
+  already has is idempotent. Only `png/jpg/webp/gif` and `mp4/webm` are accepted, sniffed
+  from the bytes rather than the filename.
+  A field that points at Blob holds an absolute URL, which `media_src()` and
+  `responsive_image()` leave untouched — they only stamp and offer variants for
+  `/static/…` values.
 - **The size rewrite now matters to every visitor,** not just to an admin in `?edit=1`:
   a size is rendered by rewriting the finished response.
   `test_a_size_reaches_the_public_page` stages a real size and fetches the page as a

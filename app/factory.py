@@ -10,15 +10,24 @@ from flask_compress import Compress
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from markupsafe import Markup
-from sitecopy import LocalFileStore, SiteCopy, is_edit_mode, t
+from sitecopy import FileStore, LocalFileStore, SiteCopy, is_edit_mode, t
 from sitecopy.resolver import editable
 
 from app.content import STATIC_PREFIX, media_src, responsive_image
+from app.media_store import VercelBlobStore
 from app.registry import REGISTRY
 
 load_dotenv()
 
-DEFAULT_SITE_URL = "https://trackproduce.nexttech.com.ar"
+DEFAULT_SITE_URL = "https://trackproduce.com"
+
+# Static files live in ``public/`` rather than under the package: that is the directory
+# Vercel serves from its CDN, so in production ``/static/…`` is answered at the edge and
+# never reaches the function. Flask still points at the same folder, which keeps
+# ``url_for('static', …)`` and the on-disk checks in ``app/content.py`` working
+# identically in development, in Docker and in the deployed bundle.
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+STATIC_FOLDER = os.path.join(REPO_ROOT, "public", STATIC_PREFIX.strip("/"))
 
 # Extensions are created at module level so models and repositories can import
 # them (e.g. ``from app.factory import db``).
@@ -59,14 +68,57 @@ def editor_pages() -> list[dict[str, str]]:
     return [{"path": "/", "label": "Inicio"}]
 
 
+def on_vercel() -> bool:
+    """True when running as a Vercel Function (Vercel sets ``VERCEL`` in every runtime)."""
+    return bool(os.environ.get("VERCEL"))
+
+
+def file_store(upload_folder: str) -> FileStore:
+    """Where the content editor's uploads go.
+
+    Vercel Functions have a read-only filesystem, so writing next to the app is not an
+    option there — with a Blob token present, uploads go to Vercel Blob and are served
+    from its CDN. Development and Docker keep the local folder, which needs no account
+    and survives a rebuild through its volume.
+    """
+    token = os.environ.get("BLOB_READ_WRITE_TOKEN")
+    if token:
+        return VercelBlobStore(token, prefix=os.environ.get("BLOB_PREFIX", "uploads"))
+    return LocalFileStore(upload_folder, "/uploads")
+
+
+def auto_schema() -> bool:
+    """Whether to create the tables at boot.
+
+    Off on Vercel: every cold start would spend two round trips re-checking a schema
+    that only changes on deploy, and a serverless process is the wrong place to be
+    running DDL from. ``scripts/init_db.py`` does it once against the deployed database
+    instead. On everywhere else, where boot happens once and a fresh checkout should
+    just run.
+    """
+    default = "0" if on_vercel() else "1"
+    return os.environ.get("DB_AUTO_SCHEMA", default) not in ("0", "false", "False", "")
+
+
 def create_app() -> Flask:
     """Create, configure and return the Flask application."""
-    app = Flask(__name__)
+    app = Flask(__name__, static_folder=STATIC_FOLDER, static_url_path=STATIC_PREFIX)
 
     app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
         "DATABASE_URL", "sqlite:///local.db"
     )
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    if on_vercel():
+        # A function instance serves many requests but can sit idle for a long time
+        # between them, and the database is a managed Postgres several network hops
+        # away. Keep a single connection to reuse, check it is still alive before
+        # handing it out, and drop it well before either side times it out.
+        app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+            "pool_size": 1,
+            "max_overflow": 2,
+            "pool_pre_ping": True,
+            "pool_recycle": 300,
+        }
     # Absolute: uploaded media is served back out of this directory, and a relative
     # path would resolve against whatever the working directory happens to be.
     app.config["UPLOAD_FOLDER"] = os.path.abspath(
@@ -122,9 +174,10 @@ def create_app() -> Flask:
         pages=editor_pages,
         brand=lambda: str(t("global.brand")),
         site_url=app.config["SITE_URL"],
-        # Uploads land in the mounted UPLOAD_FOLDER volume, not under static/, so they
-        # survive an image rebuild. ``serve_upload`` in routes.py serves them back.
-        files=LocalFileStore(app.config["UPLOAD_FOLDER"], "/uploads"),
+        # Vercel Blob once deployed; in development the mounted UPLOAD_FOLDER volume,
+        # which is outside static/ so an image rebuild does not wipe it and which
+        # ``serve_upload`` in routes.py serves back.
+        files=file_store(app.config["UPLOAD_FOLDER"]),
         # Let the editor change how big a text renders. The wrapper this puts around a
         # sized value is a <span>, so the site's CSS must not style bare descendant
         # spans — `.brand__accent` and `.site-nav__num` carry classes for that reason.
@@ -134,12 +187,12 @@ def create_app() -> Flask:
     )
 
     # The gallery's registry defaults are literal "/static/…" strings built at import,
-    # with no app to ask. A different static_url_path would 404 every piece at once, so
-    # fail at boot rather than serving a gallery of broken images.
-    if app.static_url_path != STATIC_PREFIX:
+    # and ``content.py`` reads the files themselves to decide which responsive variants
+    # exist. A missing folder — excluded from the deployed bundle, say — would 404 every
+    # piece at once, so fail at boot rather than serve a gallery of broken images.
+    if not os.path.isdir(STATIC_FOLDER):
         raise RuntimeError(
-            f"app/content.py builds gallery defaults under {STATIC_PREFIX!r}, but this "
-            f"app serves static files from {app.static_url_path!r}."
+            f"static files are served from {STATIC_FOLDER!r}, which does not exist."
         )
     app.jinja_env.globals["responsive_image"] = responsive_image
     app.jinja_env.globals["media_src"] = media_src
@@ -151,7 +204,8 @@ def create_app() -> Flask:
         from app.routes import register_routes
 
         register_routes(app)
-        db.create_all()
-        sitecopy.ensure_schema()
+        if auto_schema():
+            db.create_all()
+            sitecopy.ensure_schema()
 
     return app
