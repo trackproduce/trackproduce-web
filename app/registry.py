@@ -36,14 +36,19 @@ GLOBAL = Group(
                 "{brand}, la ciudad como {city} y la bajada como {tagline}."
             ),
             fields=(
-                TextField("global.brand", "Nombre de la marca", "Track Produce", max_length=60),
+                # A token field never renders on its own — it is spliced into other
+                # strings — so there is no element of its own to resize. Same for the
+                # city; the mail only ever lands inside a `mailto:`.
+                TextField("global.brand", "Nombre de la marca", "Track Produce",
+                          max_length=60, resizable=False),
                 TextField(
                     "global.tagline",
                     "Bajada de la marca",
                     "Productora audiovisual & musical",
                     max_length=120,
                 ),
-                TextField("global.city", "Ciudad", "Buenos Aires", max_length=60),
+                TextField("global.city", "Ciudad", "Buenos Aires", max_length=60,
+                          resizable=False),
             ),
         ),
         Section(
@@ -72,7 +77,8 @@ GLOBAL = Group(
                 TextField("global.instagram_handle", "Usuario de Instagram", "@trackproduce"),
                 # A `line`, not a `url`: the url type validates http(s) and refuses a
                 # bare mailto:, and this value is spliced into `mailto:` in the template.
-                TextField("global.email", "Casilla de contacto", "hola@trackproduce.com"),
+                TextField("global.email", "Casilla de contacto", "hola@trackproduce.com",
+                          resizable=False),
             ),
         ),
     ),

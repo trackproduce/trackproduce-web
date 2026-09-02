@@ -9,9 +9,11 @@ from flask import Flask
 from flask_compress import Compress
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
-from sitecopy import LocalFileStore, SiteCopy, t
+from markupsafe import Markup
+from sitecopy import LocalFileStore, SiteCopy, is_edit_mode, t
+from sitecopy.resolver import editable
 
-from app.content import STATIC_PREFIX, responsive_image
+from app.content import STATIC_PREFIX, media_src, responsive_image
 from app.registry import REGISTRY
 
 load_dotenv()
@@ -23,6 +25,29 @@ DEFAULT_SITE_URL = "https://trackproduce.nexttech.com.ar"
 db: SQLAlchemy = SQLAlchemy()
 migrate: Migrate = Migrate()
 sitecopy: SiteCopy = SiteCopy()
+
+
+def editable_media(*keys: str) -> Markup:
+    """Attach media field `keys` to the ``<img>``/``<video>`` they are rendered on.
+
+    The visual editor hangs its "cambiar imagen" control off the picture itself, and
+    finds the picture by looking for a media key among the ones that element carries.
+    A key reaches an element by appearing in one of its attributes, which normally
+    happens for free — but this site renders media through a cache-stamped, responsive
+    URL rather than the stored value, so nothing would carry the key.
+
+    Hence a marker in a throwaway attribute, emitted **only in edit mode**: the response
+    rewrite consumes it and records the key, and a visitor's HTML never grows an
+    attribute that exists purely for the editor.
+    """
+    if not is_edit_mode():
+        return Markup("")
+    # Leading space, and every call site strips the whitespace before it: that way the
+    # attribute is separated from its neighbour here, and a public render collapses to
+    # nothing at all rather than leaving a ragged blank line behind.
+    return Markup(
+        "".join(f' data-ct-key-{index}="{editable(key)}"' for index, key in enumerate(keys))
+    )
 
 
 def editor_pages() -> list[dict[str, str]]:
@@ -117,6 +142,8 @@ def create_app() -> Flask:
             f"app serves static files from {app.static_url_path!r}."
         )
     app.jinja_env.globals["responsive_image"] = responsive_image
+    app.jinja_env.globals["media_src"] = media_src
+    app.jinja_env.globals["editable_media"] = editable_media
 
     with app.app_context():
         # Import models so SQLAlchemy/Migrate can discover them.

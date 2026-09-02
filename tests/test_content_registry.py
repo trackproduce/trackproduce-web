@@ -204,9 +204,22 @@ def test_media_and_attribute_only_copy_offer_no_size(app: Flask) -> None:
     not_resizable = {
         key for key, field in REGISTRY.fields.items() if not field.is_resizable
     }
-    assert "home.meta.description" in not_resizable
-    assert "home.lightbox.close" in not_resizable
-    assert "home.hero.video" in not_resizable
+    # Copy that never becomes visible text on its own: it lands in an attribute, or it
+    # is only ever spliced into another string as a token. `global.tagline` is a token
+    # too but the hero and the footer also render it directly, so it stays resizable.
+    for key in (
+        "home.meta.title",
+        "home.meta.description",
+        "home.lightbox.close",
+        "home.hero.scroll_label",
+        "home.hero.video",
+        "home.hero.poster",
+        "global.brand",
+        "global.city",
+        "global.email",
+    ):
+        assert key in not_resizable, f"{key} renders no text of its own to resize"
+    assert "global.tagline" not in not_resizable
     for category in get_gallery():
         for item in category["items"]:
             assert f"{item['key']}.src" in not_resizable
@@ -226,8 +239,51 @@ def test_an_uploaded_image_is_served_without_the_responsive_variants(app: Flask)
         uploaded = responsive_image("/uploads/0123456789abcdef.webp")
 
     assert "400w" in shipped["srcset"] and "600w" in shipped["srcset"]
-    assert shipped["src"].endswith("-600.webp")
+    assert re.fullmatch(r"/static/assets/gallery/arte-01-600\.webp\?v=\d+", shipped["src"])
+    # An upload is already content-addressed, so it needs no stamp and has no variants.
     assert uploaded == {"src": "/uploads/0123456789abcdef.webp", "srcset": ""}
+
+
+def test_every_static_media_url_carries_a_cache_stamp(app: Flask) -> None:
+    """Static files are cached for a year, so every URL has to change when the file does.
+
+    ``url_for`` stamps the ones it builds, but a value resolved from the registry never
+    goes through it. Without a stamp of its own, replacing a shipped picture or clip at
+    the same path in a deploy keeps serving the old bytes for up to a year.
+    """
+    html = app.test_client().get("/").get_data(as_text=True)
+    served = re.findall(r'(?:src|poster|data-src)="(/static/[^"]*)"', html)
+    assert served, "the page rendered no static media at all — the check proves nothing"
+    unstamped = sorted({url for url in served if not re.search(r"\?v=\d+$", url)})
+    assert unstamped == [], f"static media served without a cache stamp: {unstamped}"
+    # And the stamp is on the responsive variants too, not just the plain src.
+    assert re.search(r'srcset="/static/[^"]+\?v=\d+ 400w', html)
+
+
+def test_the_public_page_has_no_editor_only_attributes(app: Flask) -> None:
+    """The keys the editor needs on a picture are emitted for the editor only."""
+    client = app.test_client()
+    assert "data-ct-key-" not in client.get("/").get_data(as_text=True)
+
+    login(client)
+    edit = client.get("/?edit=1").get_data(as_text=True)
+    assert 'data-ct-keys' in edit, "edit mode recorded no keys on any element"
+
+
+def test_every_picture_is_editable_in_place(app: Flask) -> None:
+    """The editor hangs "cambiar imagen" off an <img>/<video> carrying a media key.
+
+    It looks for `img[data-ct-keys], video[data-ct-keys]`, so a key recorded on the
+    surrounding <figure> instead would leave the piece with no control on the canvas —
+    silently, and only in the editor, which no other test would notice.
+    """
+    client = app.test_client()
+    login(client)
+    edit = client.get("/?edit=1").get_data(as_text=True)
+
+    carriers = len(re.findall(r"<(?:img|video)[^>]*\bdata-ct-keys=", edit))
+    pieces = sum(len(category["items"]) for category in get_gallery())
+    assert carriers == pieces + 1, "every gallery piece, plus the hero clip"
 
 
 def test_a_changed_gallery_piece_reaches_the_public_page(app: Flask) -> None:
@@ -248,7 +304,7 @@ def test_a_changed_gallery_piece_reaches_the_public_page(app: Flask) -> None:
     html = client.get("/").get_data(as_text=True)
     assert "/uploads/deadbeefdeadbeef.webp" in html
     # The replaced picture is gone, and took its stale srcset with it.
-    assert "assets/gallery/destacados-01.webp" not in html
+    assert "destacados-01-600.webp" not in html
     assert "destacados-01-400.webp" not in html
 
 

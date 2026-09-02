@@ -126,18 +126,47 @@ def static_url(src: str) -> str:
     return f"{STATIC_PREFIX}/{src}"
 
 
+@lru_cache(maxsize=1024)
+def _mtime_tag(src: str, static_folder: str) -> str:
+    prefix = f"{STATIC_PREFIX}/"
+    if not src.startswith(prefix) or "?" in src:
+        return ""
+    try:
+        return f"?v={int(os.stat(os.path.join(static_folder, src[len(prefix):])).st_mtime)}"
+    except OSError:
+        return ""
+
+
+def media_src(src: str) -> str:
+    """A media URL with the same ``?v=<mtime>`` cache-buster ``url_for`` adds.
+
+    Static files are cached for a year, which is only safe because every URL carries a
+    stamp that changes when the file does — and a value resolved from the registry never
+    passed through ``url_for`` to get one. Without this, replacing a shipped picture or
+    clip at the same path in a deploy would keep serving the old bytes to returning
+    visitors for up to a year.
+
+    An uploaded file (``/uploads/…``) is left alone: its name is already the hash of its
+    contents, so the URL changes whenever the bytes do.
+    """
+    return f"{src}{_mtime_tag(src, current_app.static_folder or '')}"
+
+
 @lru_cache(maxsize=512)
-def _variants(src: str, static_folder: str) -> tuple[str, str] | None:
-    """``(src, srcset)`` for an image with responsive variants on disk, else None."""
+def _srcset(src: str, static_folder: str) -> str:
+    """The ``srcset`` for an image with responsive variants on disk, else ``""``."""
     prefix = f"{STATIC_PREFIX}/"
     if not src.startswith(prefix):
-        return None
+        return ""
     base = src[len(prefix):].rsplit(".", 1)[0]
     names = {width: f"{base}-{width}.webp" for width in (400, 600)}
     if not all(os.path.isfile(os.path.join(static_folder, name)) for name in names.values()):
-        return None
-    urls = {width: f"{prefix}{name}" for width, name in names.items()}
-    return urls[600], f"{urls[400]} 400w, {urls[600]} 600w"
+        return ""
+    urls = {
+        width: f"{prefix}{name}{_mtime_tag(f'{prefix}{name}', static_folder)}"
+        for width, name in names.items()
+    }
+    return f"{urls[400]} 400w, {urls[600]} 600w"
 
 
 def responsive_image(src: str) -> dict[str, str]:
@@ -147,9 +176,15 @@ def responsive_image(src: str) -> dict[str, str]:
     only exist for the files that ship with the repo. A picture the content editor
     uploads has none, so it is served as it was uploaded rather than through a ``srcset``
     pointing at two URLs that would 404.
+
+    ``src`` is the 600px variant when there is one — the widest a card is ever drawn —
+    and falls back to the file itself otherwise.
     """
-    found = _variants(src, current_app.static_folder or "")
-    return {"src": src, "srcset": ""} if found is None else {"src": found[0], "srcset": found[1]}
+    static_folder = current_app.static_folder or ""
+    srcset = _srcset(src, static_folder)
+    if not srcset:
+        return {"src": media_src(src), "srcset": ""}
+    return {"src": srcset.rsplit(" 600w", 1)[0].rsplit(", ", 1)[-1], "srcset": srcset}
 
 
 # Real collaborators / clients, derived from the brand's published work.

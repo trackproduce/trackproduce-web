@@ -60,10 +60,12 @@
     </header>
 
     <section class="hero" id="top">
+        {#- No `type` on the source: the field accepts webm as well as mp4, and a `type`
+            that disagrees with the file makes the browser skip it without trying. -#}
         <video class="hero__bg" autoplay muted loop playsinline
-               poster="{{ t('home.hero.poster') }}">
-            <source src="{{ t('home.hero.video') }}" type="video/mp4" />
-        </video>
+               src="{{ media_src(t_plain('home.hero.video')) }}"
+               poster="{{ media_src(t_plain('home.hero.poster')) }}"
+               {{- editable_media('home.hero.video', 'home.hero.poster') }}></video>
         <div class="hero__overlay"></div>
         <div class="hero__content">
             <p class="hero__eyebrow"><span class="eyebrow-line"></span>{{ t('global.tagline') }}</p>
@@ -146,25 +148,29 @@
         <div class="gallery">
             {% for cat in gallery %}
                 {% for item in cat['items'] %}
-                {#- `t()` in the attribute so the visual editor can wire its "cambiar"
-                    control to this piece; `t_plain()` to look up the responsive variants,
-                    which needs the value itself rather than a marked-up copy of it. -#}
+                {#- `t_plain()` because these values are looked up (variants, cache stamp)
+                    and read back by main.js, so an editor marker has no business in them.
+                    The keys still reach the editor: `editable_media` puts them on the
+                    picture itself, which is what its "cambiar" control hangs off. -#}
                 {%- set media = responsive_image(t_plain(item.key ~ '.src')) %}
                 <figure class="card" data-cat="{{ cat.slug }}"
                         style="--w: {{ item.width }}; --h: {{ item.height }};"
                         data-type="{{ item.type }}"
-                        data-src="{{ t(item.key ~ '.src') }}"
+                        data-src="{{ media_src(t_plain(item.key ~ '.src')) }}"
                         tabindex="0" aria-label="{{ t(item.key ~ '.alt') }}">
                     {% if item.type == 'video' %}
                         <video class="card__media" muted loop playsinline preload="none"
-                               poster="{{ t(item.key ~ '.poster') }}"></video>
+                               poster="{{ media_src(t_plain(item.key ~ '.poster')) }}"
+                               {{- editable_media(item.key ~ '.src', item.key ~ '.poster') }}></video>
                         <span class="card__badge" aria-hidden="true">▶</span>
                     {% else %}
                         <img class="card__media" loading="lazy"
-                             src="{{ t(item.key ~ '.src') }}"
+                             src="{{ media.src }}"
                              {% if media.srcset %}srcset="{{ media.srcset }}"
                              sizes="(max-width: 540px) 100vw, (max-width: 900px) 50vw, 33vw"{% endif %}
                              width="{{ item.width }}" height="{{ item.height }}"
+                             {#- the trailing dash keeps a public render from leaving a blank line -#}
+                             {{- editable_media(item.key ~ '.src') }}
                              alt="{{ t(item.key ~ '.alt') }}" />
                     {% endif %}
                     <figcaption class="card__cap">

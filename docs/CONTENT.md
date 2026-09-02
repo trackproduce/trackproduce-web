@@ -69,6 +69,21 @@ Two things worth knowing:
   the piece already had in the grid, so a similar shape uploads best. To give an upload the
   full responsive treatment, commit it under `static/assets/gallery/`, run the script, and
   point the field at it.
+- **Media URLs are cache-stamped by `media_src()`,** not by `url_for`. Static files are
+  cached for a year, which is only safe because every URL carries a `?v=<mtime>` that
+  changes when the file does — and a value resolved from the registry never passes through
+  `url_for` to get one. Anything rendering a `/static/…` value from a field must go through
+  `media_src()` (or `responsive_image()`, which uses it), or replacing that file in a deploy
+  will keep serving the old bytes for up to a year.
+  `test_every_static_media_url_carries_a_cache_stamp` fails if a new one is missed. Uploads
+  are left alone: their names are already content hashes.
+- **`editable_media()` is what makes a picture clickable in the editor.** The editor hangs
+  its control off an `<img>`/`<video>` that carries a media key, and a key normally reaches
+  an element just by being rendered into one of its attributes — but these elements render a
+  stamped, responsive URL instead of the stored value, so none would. `editable_media()`
+  puts the keys in a throwaway attribute **in edit mode only**, so a visitor's HTML stays
+  clean. A new media element needs that call, or it silently loses its control on the canvas
+  (`test_every_picture_is_editable_in_place` counts them).
 
 ## Text sizes
 
